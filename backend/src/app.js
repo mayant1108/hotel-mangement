@@ -1,38 +1,61 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import connectDB from './config/db.js';
 
-// Routes
-import authRoutes from './router/authRoutes.js';
-import hotelRoutes from './router/hotelRoutes.js';
-import roomRoutes from './router/roomRoutes.js';
-import bookingRoutes from './router/bookingRoutes.js';
-
-dotenv.config();
-connectDB();
+import authRoutes from './routes/authRoutes.js';
+import hotelRoutes from './routes/hotelRoutes.js';
+import roomRoutes from './routes/roomRoutes.js';
+import bookingRoutes from './routes/bookingRoutes.js';
 
 const app = express();
+dotenv.config();
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  process.env.FRONTEND_URL,
+  process.env.ADMIN_URL,
+].filter(Boolean);
 
-// Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error('Origin not allowed by CORS'));
+    },
+  }),
+);
+
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// API Routes
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/hotels', hotelRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/bookings', bookingRoutes);
 
-// Health check
 app.get('/', (req, res) => {
-  res.send('Hotel API is running...');
+  res.json({ message: 'Hotel API is running...' });
 });
 
-// Error handling middleware (optional)
+app.use((req, res) => {
+  res.status(404).json({ message: 'Route not found' });
+});
+
 app.use((err, req, res, next) => {
+  void req;
+  void next;
   console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!' });
+  res.status(err.status || 500).json({
+    message: err.message || 'Something went wrong!',
+  });
 });
 
 export default app;

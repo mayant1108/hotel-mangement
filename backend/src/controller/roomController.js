@@ -16,10 +16,19 @@ export const createRoom = async (req, res) => {
 // @route   GET /api/rooms
 export const getRooms = async (req, res) => {
   try {
-    const { hotelId, checkIn, checkOut, type, page = 1, limit = 10 } = req.query;
+    const {
+      hotelId,
+      checkIn,
+      checkOut,
+      type,
+      guests,
+      page = 1,
+      limit = 10,
+    } = req.query;
     const filter = {};
     if (hotelId) filter.hotelId = hotelId;
     if (type) filter.type = type;
+    if (guests) filter.capacity = { $gte: Number(guests) };
 
     // If checkIn and checkOut provided, exclude rooms that are booked in that period
     let bookedRoomIds = [];
@@ -33,15 +42,19 @@ export const getRooms = async (req, res) => {
       filter._id = { $nin: bookedRoomIds };
     }
 
+    const pageNumber = Number(page);
+    const limitNumber = Number(limit);
+
     const rooms = await Room.find(filter)
       .populate('hotelId', 'name city')
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+      .limit(limitNumber)
+      .skip((pageNumber - 1) * limitNumber)
+      .sort({ createdAt: -1 });
     const total = await Room.countDocuments(filter);
     res.json({
       rooms,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
+      totalPages: Math.ceil(total / limitNumber) || 1,
+      currentPage: pageNumber,
       total,
     });
   } catch (error) {

@@ -18,6 +18,9 @@ export const createBooking = async (req, res) => {
     const room = await Room.findById(roomId);
     if (!room) return res.status(404).json({ message: 'Room not found' });
     if (!room.isAvailable) return res.status(400).json({ message: 'Room is not available' });
+    if (Number(guests) > room.capacity) {
+      return res.status(400).json({ message: 'Guest count exceeds room capacity' });
+    }
 
     // Check for overlapping bookings
     const overlapping = await Booking.findOne({
@@ -71,7 +74,8 @@ export const getAllBookings = async (req, res) => {
     const bookings = await Booking.find({})
       .populate('userId', 'name email')
       .populate('hotelId', 'name')
-      .populate('roomId', 'roomNumber type');
+      .populate('roomId', 'roomNumber type')
+      .sort({ createdAt: -1 });
     res.json(bookings);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -83,6 +87,11 @@ export const getAllBookings = async (req, res) => {
 export const updateBookingStatus = async (req, res) => {
   try {
     const { status } = req.body;
+    const allowedStatuses = ['pending', 'confirmed', 'cancelled', 'completed'];
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({ message: 'Invalid booking status' });
+    }
+
     const booking = await Booking.findById(req.params.id);
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
