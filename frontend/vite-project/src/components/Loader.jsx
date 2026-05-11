@@ -1,8 +1,8 @@
-export default function Loader({ label = 'Loading...' }) {
+export default function Loader({ label = "Loading..." }) {
   return (
-    <div className="flex flex-col items-center gap-4 text-center">
-      <span className="h-12 w-12 animate-spin rounded-full border-4 border-white/15 border-t-teal-300" />
-      <p className="text-sm uppercase tracking-[0.3em] text-slate-300">{label}</p>
+    <div className="flex flex-col items-center justify-center gap-3">
+      <div className="w-10 h-10 border-4 border-gold/20 border-t-gold rounded-full animate-spin"></div>
+      <p className="text-slate-300 text-sm">{label}</p>
     </div>
   );
 }

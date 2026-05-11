@@ -1,14 +1,75 @@
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import api from '../../services/api.js';
+
 export default function Footer() {
+  const [featuredHotel, setFeaturedHotel] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadHotel = async () => {
+      try {
+        const { data } = await api.get('/hotels', { params: { limit: 1 } });
+        if (active) {
+          setFeaturedHotel(data.hotels?.[0] || null);
+        }
+      } catch {
+        if (active) {
+          setFeaturedHotel(null);
+        }
+      }
+    };
+
+    loadHotel();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
-    <footer className="border-t border-white/10 bg-slate-950/40">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4 py-8 text-sm text-slate-400 md:flex-row md:items-center md:justify-between">
+    <footer className="border-t border-white/10 bg-black/50 px-4 py-12">
+      <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-4">
         <div>
-          <p className="font-medium text-slate-200" style={{ fontFamily: 'Sora, sans-serif' }}>
-            Hotel Haven
+          <h3 className="text-2xl font-['Playfair_Display'] font-bold text-gold">EliteHaven</h3>
+          <p className="mt-2 text-sm text-white/50">
+            Live hotel inventory, smoother bookings, and responsive stays across every screen.
           </p>
-          <p>Search, compare, and book comfortable stays with one clean flow.</p>
         </div>
-        <p>Built for guests and admins using the same live backend API.</p>
+        <div>
+          <h4 className="mb-3 font-semibold text-white/80">Quick Links</h4>
+          <ul className="space-y-2 text-sm text-white/50">
+            <li><a className="hover:text-gold" href="/#home">Home</a></li>
+            <li><Link className="hover:text-gold" to="/hotels">Hotels</Link></li>
+            <li><a className="hover:text-gold" href="/#amenities">Amenities</a></li>
+            <li><Link className="hover:text-gold" to="/bookings">My Bookings</Link></li>
+          </ul>
+        </div>
+        <div>
+          <h4 className="mb-3 font-semibold text-white/80">Contact</h4>
+          {featuredHotel ? (
+            <>
+              <p className="text-sm text-white/50">{featuredHotel.address}</p>
+              <p className="text-sm text-white/50">{featuredHotel.city}, {featuredHotel.state}</p>
+              <p className="text-sm text-white/50">{featuredHotel.contactPhone || 'Phone unavailable'}</p>
+              <p className="text-sm text-white/50">{featuredHotel.contactEmail || 'Email unavailable'}</p>
+            </>
+          ) : (
+            <p className="text-sm text-white/50">Hotel contact details will appear here once inventory is added.</p>
+          )}
+        </div>
+        <div>
+          <h4 className="mb-3 font-semibold text-white/80">Follow Us</h4>
+          <div className="flex gap-4 text-xl text-gold">
+            <i className="fab fa-instagram cursor-pointer transition hover:scale-110"></i>
+            <i className="fab fa-facebook cursor-pointer transition hover:scale-110"></i>
+            <i className="fab fa-twitter cursor-pointer transition hover:scale-110"></i>
+          </div>
+        </div>
+      </div>
+      <div className="mt-10 text-center text-xs text-white/30">
+        © 2026 EliteHaven. All rights reserved.
       </div>
     </footer>
   );

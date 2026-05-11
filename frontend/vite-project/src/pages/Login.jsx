@@ -4,101 +4,70 @@ import useAuth from '../../hooks/useAuth.js';
 import { getApiErrorMessage } from '../../services/api.js';
 
 export default function Login() {
-  const navigate = useNavigate();
-  const location = useLocation();
   const { login } = useAuth();
-  const redirectTo = location.state?.from || '/';
-
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  });
+  const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const redirectTo = location.state?.from || '/';
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setLoading(true);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     setError('');
+    setLoading(true);
 
     try {
-      await login(formData);
+      await login(form);
       navigate(redirectTo, { replace: true });
-    } catch (submitError) {
-      setError(getApiErrorMessage(submitError, 'Unable to sign in.'));
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, 'Unable to sign in right now.'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <section className="mx-auto flex min-h-[70vh] w-full max-w-7xl items-center justify-center px-4">
-      <div className="grid w-full max-w-5xl overflow-hidden rounded-[2.5rem] border border-white/10 bg-white/5 shadow-2xl shadow-black/20 backdrop-blur lg:grid-cols-[0.95fr_1.05fr]">
-        <div className="hidden bg-gradient-to-br from-teal-300/20 via-white/5 to-transparent p-10 lg:block">
-          <p className="text-xs uppercase tracking-[0.34em] text-teal-200">Welcome back</p>
-          <h1 className="mt-4 text-4xl font-semibold text-white" style={{ fontFamily: 'Sora, sans-serif' }}>
-            Pick up your next trip exactly where you left it.
-          </h1>
-          <p className="mt-4 max-w-md text-base leading-7 text-slate-300">
-            Sign in to manage current stays, check booking statuses, and open the admin dashboard if your account has access.
-          </p>
-        </div>
-
-        <form className="p-8 md:p-10" onSubmit={handleSubmit}>
-          <p className="text-xs uppercase tracking-[0.34em] text-slate-400">Account access</p>
-          <h2 className="mt-3 text-3xl font-semibold text-white" style={{ fontFamily: 'Sora, sans-serif' }}>
-            Login
-          </h2>
-          <p className="mt-3 text-sm leading-7 text-slate-300">
-            Use your email and password to continue.
-          </p>
-
-          {error && (
-            <div className="mt-5 rounded-2xl border border-red-300/20 bg-red-300/10 p-4 text-sm text-red-100">
-              {error}
-            </div>
-          )}
-
-          <div className="mt-6 space-y-4">
-            <label className="block space-y-2 text-sm text-slate-200">
-              <span>Email</span>
-              <input
-                className="w-full rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-white outline-none focus:border-teal-300/60"
-                onChange={(event) => setFormData((current) => ({ ...current, email: event.target.value }))}
-                placeholder="you@example.com"
-                type="email"
-                value={formData.email}
-              />
-            </label>
-
-            <label className="block space-y-2 text-sm text-slate-200">
-              <span>Password</span>
-              <input
-                className="w-full rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-white outline-none focus:border-teal-300/60"
-                onChange={(event) => setFormData((current) => ({ ...current, password: event.target.value }))}
-                placeholder="Enter your password"
-                type="password"
-                value={formData.password}
-              />
-            </label>
+    <div className="mx-auto max-w-md px-4 py-14 sm:px-6 sm:py-20">
+      <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur-sm sm:p-8">
+        <h1 className="mb-3 text-center text-3xl font-['Playfair_Display'] font-bold text-gold">Sign In</h1>
+        <p className="text-center text-sm leading-6 text-slate-300">
+          Use your account to view bookings and reserve rooms from live inventory.
+        </p>
+        {error && (
+          <div className="mt-5 rounded-2xl border border-red-300/25 bg-red-300/10 px-4 py-3 text-sm text-red-100">
+            {error}
           </div>
-
+        )}
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          <input
+            className="mt-6 w-full rounded-xl border border-white/20 bg-black/60 p-3 text-white outline-none transition focus:border-gold/50"
+            onChange={(e) => setForm((current) => ({ ...current, email: e.target.value }))}
+            placeholder="Email"
+            required
+            type="email"
+            value={form.email}
+          />
+          <input
+            className="w-full rounded-xl border border-white/20 bg-black/60 p-3 text-white outline-none transition focus:border-gold/50"
+            onChange={(e) => setForm((current) => ({ ...current, password: e.target.value }))}
+            placeholder="Password"
+            required
+            type="password"
+            value={form.password}
+          />
           <button
-            className="mt-6 w-full rounded-2xl bg-teal-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-teal-200 disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-full bg-gold py-3 font-semibold text-black transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-70"
             disabled={loading}
             type="submit"
           >
-            {loading ? 'Signing in...' : 'Sign in'}
+            {loading ? 'Signing in...' : 'Login'}
           </button>
-
-          <p className="mt-6 text-sm text-slate-300">
-            New here?{' '}
-            <Link className="font-semibold text-teal-200 transition hover:text-white" to="/register">
-              Create an account
-            </Link>
-          </p>
         </form>
+        <p className="mt-4 text-center text-sm text-white/50">
+          Don&apos;t have an account? <Link className="text-gold" to="/register">Register</Link>
+        </p>
       </div>
-    </section>
+    </div>
   );
 }

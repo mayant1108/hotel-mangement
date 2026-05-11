@@ -1,62 +1,55 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700&display=swap');
 @import './tailwind.generated.css';
 
-:root {
-  color: #e5eef7;
-  background:
-    radial-gradient(circle at top, rgba(20, 184, 166, 0.2), transparent 28%),
-    linear-gradient(180deg, #07111f 0%, #0c1727 52%, #050b14 100%);
-  font-family: 'Manrope', sans-serif;
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    background-color: #0a0a0a;
+    color: #e5e5e5;
+    font-family: 'Poppins', sans-serif;
+
+    /* Subtle “paper + light” texture to better match luxury hotel sites */
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(200, 169, 107, 0.12), transparent 45%),
+      radial-gradient(circle at 80% 40%, rgba(200, 169, 107, 0.08), transparent 52%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0) 30%),
+      url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="260" height="260" viewBox="0 0 260 260"%3E%3Cfilter id="n" x="-20%" y="-20%"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="260" height="260" filter="url(%23n)" opacity="0.18"/%3E%3C/svg%3E');
+    background-size: auto, auto, auto, 260px 260px;
+    background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+    background-attachment: fixed;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+
+  img {
+    display: block;
+    max-width: 100%;
+  }
 }
 
-* {
-  box-sizing: border-box;
+/* Small reusable visual helpers */
+@layer utilities {
+  .section-kicker {
+    text-transform: uppercase;
+    letter-spacing: 0.36em;
+    font-size: 0.75rem;
+    color: rgb(200 169 107 / 0.95);
+  }
+
+  .section-heading {
+    font-family: 'Playfair Display', serif;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
 }
 
-html {
-  scroll-behavior: smooth;
-}
-
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-  background: transparent;
-  color: #e5eef7;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-button,
-input,
-select,
-textarea {
-  font: inherit;
-}
-
-#root {
-  min-height: 100vh;
-}
-
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
-}

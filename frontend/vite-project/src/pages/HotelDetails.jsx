@@ -1,257 +1,390 @@
-import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import useAuth from '../../hooks/useAuth.js';
 import api, { getApiErrorMessage } from '../../services/api.js';
 import Loader from '../components/Loader.jsx';
 import {
-  buildBookingDates,
+  buildHotelLocation,
   formatCurrency,
-  getHotelImage,
-  getRoomImage,
-  toTitleCase,
-} from '../../utils/helpers.js';
+  getPrimaryImage,
+  resolveEntityId,
+} from '../utils/hotel.js';
+
+const defaultBookingForm = {
+  roomId: '',
+  checkInDate: '',
+  checkOutDate: '',
+  guests: 1,
+  specialRequests: '',
+};
 
 export default function HotelDetails() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [hotel, setHotel] = useState(null);
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [roomLoading, setRoomLoading] = useState(false);
   const [error, setError] = useState('');
-  const [filters, setFilters] = useState({
-    ...buildBookingDates(),
-    guests: 1,
-  });
+  const [bookingState, setBookingState] = useState(defaultBookingForm);
+  const [bookingMessage, setBookingMessage] = useState({ type: '', text: '' });
+  const [bookingLoading, setBookingLoading] = useState(false);
 
   useEffect(() => {
-    const loadPage = async () => {
+    let active = true;
+
+    const loadHotelDetails = async () => {
       setLoading(true);
       setError('');
 
       try {
-        const [{ data: hotelData }, { data: roomData }] = await Promise.all([
+        const [hotelResponse, roomResponse] = await Promise.all([
           api.get(`/hotels/${id}`),
-          api.get('/rooms', { params: { hotelId: id, limit: 50 } }),
+          api.get('/rooms', { params: { hotelId: id, limit: 100 } }),
         ]);
 
-        setHotel(hotelData);
-        setRooms(roomData.rooms || []);
-      } catch (loadError) {
-        setError(getApiErrorMessage(loadError, 'Unable to load hotel details.'));
+        if (!active) {
+          return;
+        }
+
+        setHotel(hotelResponse.data || null);
+        setRooms(roomResponse.data.rooms || []);
+      } catch (requestError) {
+        if (active) {
+          setError(getApiErrorMessage(requestError, 'Unable to load this hotel right now.'));
+        }
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     };
 
-    loadPage();
+    loadHotelDetails();
+
+    return () => {
+      active = false;
+    };
   }, [id]);
 
-  const handleAvailabilitySearch = async (event) => {
+  useEffect(() => {
+    const preselectedRoomId = searchParams.get('room');
+    if (!preselectedRoomId) {
+      return;
+    }
+
+    setBookingState((current) => ({
+      ...current,
+      roomId: preselectedRoomId,
+    }));
+  }, [searchParams]);
+
+  const selectedRoom = useMemo(
+    () => rooms.find((room) => resolveEntityId(room) === bookingState.roomId) || null,
+    [bookingState.roomId, rooms],
+  );
+  const hotelImage = getPrimaryImage(hotel);
+  const fallbackRoomImage = getPrimaryImage(selectedRoom);
+  const galleryImages = Array.from(
+    new Set(
+      [hotel, ...rooms]
+        .map((item) => getPrimaryImage(item))
+        .filter(Boolean),
+    ),
+  );
+
+  const handleBookingSubmit = async (event) => {
     event.preventDefault();
-    setRoomLoading(true);
+    setBookingMessage({ type: '', text: '' });
+
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: `/hotels/${id}` } });
+      return;
+    }
+
+    if (!bookingState.roomId) {
+      setBookingMessage({
+        type: 'error',
+        text: 'Please select a room before sending your booking request.',
+      });
+      return;
+    }
+
+    if (selectedRoom && Number(bookingState.guests) > selectedRoom.capacity) {
+      setBookingMessage({
+        type: 'error',
+        text: `This room allows up to ${selectedRoom.capacity} guests.`,
+      });
+      return;
+    }
+
+    setBookingLoading(true);
 
     try {
-      const { data } = await api.get('/rooms', {
-        params: {
-          hotelId: id,
-          checkIn: filters.checkInDate,
-          checkOut: filters.checkOutDate,
-          limit: 50,
-        },
+      await api.post('/bookings', {
+        roomId: bookingState.roomId,
+        checkInDate: bookingState.checkInDate,
+        checkOutDate: bookingState.checkOutDate,
+        guests: Number(bookingState.guests),
+        specialRequests: bookingState.specialRequests,
       });
 
-      setRooms(
-        (data.rooms || []).filter((room) => room.capacity >= Number(filters.guests || 1)),
-      );
-    } catch (loadError) {
-      setError(getApiErrorMessage(loadError, 'Unable to check room availability.'));
+      setBookingMessage({
+        type: 'success',
+        text: 'Booking request submitted successfully. You can track it from My Bookings.',
+      });
+      setBookingState((current) => ({
+        ...current,
+        specialRequests: '',
+      }));
+    } catch (requestError) {
+      setBookingMessage({
+        type: 'error',
+        text: getApiErrorMessage(requestError, 'Unable to create this booking.'),
+      });
     } finally {
-      setRoomLoading(false);
+      setBookingLoading(false);
     }
   };
 
   if (loading) {
     return (
-      <div className="flex min-h-[70vh] items-center justify-center px-4">
+      <div className="flex justify-center px-4 py-20">
         <Loader label="Loading hotel details..." />
       </div>
     );
   }
 
-  if (error) {
+  if (error || !hotel) {
     return (
-      <section className="mx-auto w-full max-w-5xl px-4">
-        <div className="rounded-[2rem] border border-red-300/20 bg-red-300/10 p-6 text-sm text-red-100">
-          {error}
+      <div className="mx-auto max-w-4xl px-4 py-20 text-center">
+        <div className="rounded-[2rem] border border-red-300/25 bg-red-300/10 p-8 text-red-100">
+          {error || 'Hotel not found.'}
         </div>
-      </section>
+      </div>
     );
   }
 
-  if (!hotel) {
-    return null;
-  }
-
   return (
-    <section className="mx-auto w-full max-w-7xl space-y-8 px-4">
-      <div className="overflow-hidden rounded-[2.5rem] border border-white/10 bg-white/5 shadow-2xl shadow-black/20 backdrop-blur">
-        <div className="relative h-[360px] overflow-hidden">
-          <img alt={hotel.name} className="h-full w-full object-cover" src={getHotelImage(hotel)} />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 p-8">
-            <p className="text-xs uppercase tracking-[0.3em] text-teal-200">{hotel.city}, {hotel.state}</p>
-            <h1 className="mt-3 text-4xl font-semibold text-white md:text-5xl" style={{ fontFamily: 'Sora, sans-serif' }}>
-              {hotel.name}
-            </h1>
-            <p className="mt-4 max-w-3xl text-base leading-7 text-slate-200">{hotel.description || 'A comfortable place to stay.'}</p>
-          </div>
-        </div>
-
-        <div className="grid gap-6 p-8 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-3">
-              {[
-                ['Address', hotel.address],
-                ['Zip', hotel.zip],
-                ['Rating', `${hotel.rating || 0} / 5`],
-              ].map(([label, value]) => (
-                <div key={label} className="rounded-[1.5rem] border border-white/10 bg-slate-950/45 p-5">
-                  <p className="text-xs uppercase tracking-[0.28em] text-slate-400">{label}</p>
-                  <p className="mt-3 text-base font-semibold text-white">{value}</p>
+    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <section className="overflow-hidden rounded-[2.25rem] border border-white/10 bg-white/5">
+        <div className="grid lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="relative min-h-[320px]">
+            {hotelImage || fallbackRoomImage ? (
+              <img
+                alt={hotel.name}
+                className="h-full w-full object-cover"
+                src={hotelImage || fallbackRoomImage}
+              />
+            ) : (
+              <div className="flex h-full min-h-[320px] items-end bg-[radial-gradient(circle_at_top,_rgba(200,169,107,0.45),_transparent_36%),linear-gradient(135deg,_#171717,_#060606_70%)] p-8">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.32em] text-amber-200">Property details</p>
+                  <h1 className="mt-3 text-4xl font-['Playfair_Display'] font-bold text-white">{hotel.name}</h1>
                 </div>
-              ))}
-            </div>
-
-            <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/45 p-6">
-              <h2 className="text-xl font-semibold text-white" style={{ fontFamily: 'Sora, sans-serif' }}>
-                Amenities
-              </h2>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {(hotel.amenities || []).map((amenity) => (
-                  <span
-                    key={amenity}
-                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.22em] text-slate-200"
-                  >
-                    {amenity}
-                  </span>
-                ))}
+              </div>
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
+          </div>
+          <div className="p-6 sm:p-8">
+            <p className="text-sm uppercase tracking-[0.32em] text-amber-200">Hotel overview</p>
+            <h1 className="mt-3 text-4xl font-['Playfair_Display'] font-bold text-gold">{hotel.name}</h1>
+            <p className="mt-3 text-base leading-7 text-slate-300">{hotel.description || 'Description coming from hotel inventory soon.'}</p>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-[1.5rem] border border-white/10 bg-black/20 p-4">
+                <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Location</p>
+                <p className="mt-2 text-sm text-white">{buildHotelLocation(hotel) || 'Location updating soon'}</p>
+                <p className="mt-1 text-sm text-slate-400">{hotel.address}</p>
+              </div>
+              <div className="rounded-[1.5rem] border border-white/10 bg-black/20 p-4">
+                <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Starting price</p>
+                <p className="mt-2 text-2xl font-semibold text-gold">
+                  {hotel.startingPrice ? formatCurrency(hotel.startingPrice) : 'Contact us'}
+                </p>
+                <p className="mt-1 text-sm text-slate-400">{hotel.roomsCount || rooms.length} rooms available in inventory</p>
+              </div>
+              <div className="rounded-[1.5rem] border border-white/10 bg-black/20 p-4">
+                <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Contact</p>
+                <p className="mt-2 text-sm text-white">{hotel.contactPhone || 'Phone unavailable'}</p>
+                <p className="mt-1 text-sm text-slate-400">{hotel.contactEmail || 'Email unavailable'}</p>
+              </div>
+              <div className="rounded-[1.5rem] border border-white/10 bg-black/20 p-4">
+                <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Rating</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{Number(hotel.rating || 0).toFixed(1)}</p>
+                <p className="mt-1 text-sm text-slate-400">Live rating from backend data</p>
               </div>
             </div>
           </div>
+        </div>
+      </section>
 
-          <form
-            className="rounded-[1.75rem] border border-teal-300/15 bg-teal-300/10 p-6"
-            onSubmit={handleAvailabilitySearch}
-          >
-            <p className="text-xs uppercase tracking-[0.32em] text-teal-100">Availability</p>
-            <h2 className="mt-2 text-2xl font-semibold text-white" style={{ fontFamily: 'Sora, sans-serif' }}>
-              Check your dates
-            </h2>
+      <section className="mt-12 grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
+        <div>
+          <div className="mb-6">
+            <p className="text-sm uppercase tracking-[0.32em] text-amber-200">Available rooms</p>
+            <h2 className="mt-3 text-3xl font-['Playfair_Display'] font-bold text-white">Choose a room from this hotel</h2>
+          </div>
+          <div className="grid gap-5">
+            {rooms.map((room) => {
+              const selected = bookingState.roomId === resolveEntityId(room);
+
+              return (
+                <article className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5" key={resolveEntityId(room)}>
+                  <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <h3 className="text-2xl font-semibold text-white">
+                          Room {room.roomNumber} • {room.type}
+                        </h3>
+                        <span className="rounded-full bg-emerald-300/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100">
+                          {room.isAvailable ? 'Open' : 'Busy'}
+                        </span>
+                      </div>
+                      <p className="mt-3 text-sm text-slate-300">
+                        Capacity {room.capacity} • {formatCurrency(room.pricePerNight)} per night
+                      </p>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {(room.amenities || []).map((amenity) => (
+                          <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300" key={amenity}>
+                            {amenity}
+                          </span>
+                        ))}
+                        {!room.amenities?.length && (
+                          <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-400">
+                            Amenities updating soon
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      className={`rounded-full px-5 py-2.5 text-sm font-semibold transition ${
+                        selected
+                          ? 'bg-gold text-black'
+                          : 'border border-gold/[0.35] text-gold hover:bg-gold/10'
+                      }`}
+                      onClick={() => setBookingState((current) => ({
+                        ...current,
+                        roomId: resolveEntityId(room),
+                        guests: Math.min(Number(current.guests) || 1, room.capacity),
+                      }))}
+                      type="button"
+                    >
+                      {selected ? 'Selected' : 'Select room'}
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+
+            {!rooms.length && (
+              <div className="rounded-[1.75rem] border border-white/10 bg-white/5 p-8 text-slate-300">
+                No rooms have been added for this hotel yet.
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-8">
+          <form className="rounded-[2rem] border border-white/10 bg-white/5 p-6" onSubmit={handleBookingSubmit}>
+            <p className="text-sm uppercase tracking-[0.32em] text-amber-200">Reserve now</p>
+            <h2 className="mt-3 text-3xl font-['Playfair_Display'] font-bold text-white">Book this hotel</h2>
             <div className="mt-6 space-y-4">
-              <label className="block space-y-2 text-sm text-white">
-                <span>Check-in</span>
-                <input
-                  className="w-full rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-white outline-none focus:border-teal-300/60"
-                  min={new Date().toISOString().slice(0, 10)}
-                  onChange={(event) => setFilters((current) => ({ ...current, checkInDate: event.target.value }))}
-                  type="date"
-                  value={filters.checkInDate}
-                />
+              <label className="space-y-2 text-sm text-slate-200">
+                <span>Selected room</span>
+                <select
+                  className="w-full rounded-xl border border-white/[0.15] bg-slate-950/60 px-4 py-3 text-white outline-none focus:border-gold/50"
+                  onChange={(event) => setBookingState((current) => ({ ...current, roomId: event.target.value }))}
+                  required
+                  value={bookingState.roomId}
+                >
+                  <option value="">Choose a room</option>
+                  {rooms.map((room) => (
+                    <option key={resolveEntityId(room)} value={resolveEntityId(room)}>
+                      Room {room.roomNumber} • {room.type} • {formatCurrency(room.pricePerNight)}
+                    </option>
+                  ))}
+                </select>
               </label>
-              <label className="block space-y-2 text-sm text-white">
-                <span>Check-out</span>
-                <input
-                  className="w-full rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-white outline-none focus:border-teal-300/60"
-                  min={filters.checkInDate}
-                  onChange={(event) => setFilters((current) => ({ ...current, checkOutDate: event.target.value }))}
-                  type="date"
-                  value={filters.checkOutDate}
-                />
-              </label>
-              <label className="block space-y-2 text-sm text-white">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="space-y-2 text-sm text-slate-200">
+                  <span>Check-in</span>
+                  <input
+                    className="w-full rounded-xl border border-white/[0.15] bg-slate-950/60 px-4 py-3 text-white outline-none focus:border-gold/50"
+                    onChange={(event) => setBookingState((current) => ({ ...current, checkInDate: event.target.value }))}
+                    required
+                    type="date"
+                    value={bookingState.checkInDate}
+                  />
+                </label>
+                <label className="space-y-2 text-sm text-slate-200">
+                  <span>Check-out</span>
+                  <input
+                    className="w-full rounded-xl border border-white/[0.15] bg-slate-950/60 px-4 py-3 text-white outline-none focus:border-gold/50"
+                    onChange={(event) => setBookingState((current) => ({ ...current, checkOutDate: event.target.value }))}
+                    required
+                    type="date"
+                    value={bookingState.checkOutDate}
+                  />
+                </label>
+              </div>
+              <label className="space-y-2 text-sm text-slate-200">
                 <span>Guests</span>
                 <input
-                  className="w-full rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-white outline-none focus:border-teal-300/60"
+                  className="w-full rounded-xl border border-white/[0.15] bg-slate-950/60 px-4 py-3 text-white outline-none focus:border-gold/50"
+                  max={selectedRoom?.capacity || undefined}
                   min="1"
-                  onChange={(event) => setFilters((current) => ({ ...current, guests: event.target.value }))}
+                  onChange={(event) => setBookingState((current) => ({ ...current, guests: Number(event.target.value) || 1 }))}
                   type="number"
-                  value={filters.guests}
+                  value={bookingState.guests}
+                />
+              </label>
+              <label className="space-y-2 text-sm text-slate-200">
+                <span>Special requests</span>
+                <textarea
+                  className="min-h-28 w-full rounded-xl border border-white/[0.15] bg-slate-950/60 px-4 py-3 text-white outline-none focus:border-gold/50"
+                  onChange={(event) => setBookingState((current) => ({ ...current, specialRequests: event.target.value }))}
+                  placeholder="Airport pickup, late check-in, extra pillows..."
+                  value={bookingState.specialRequests}
                 />
               </label>
             </div>
             <button
-              className="mt-6 w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={roomLoading}
+              className="mt-6 w-full rounded-full bg-gold py-3 font-semibold text-black transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-70"
+              disabled={bookingLoading || !rooms.length}
               type="submit"
             >
-              {roomLoading ? 'Checking availability...' : 'Refresh available rooms'}
+              {bookingLoading ? 'Sending request...' : 'Book now'}
             </button>
+            {bookingMessage.text && (
+              <div className={`mt-4 rounded-2xl px-4 py-3 text-sm ${
+                bookingMessage.type === 'success'
+                  ? 'border border-emerald-300/20 bg-emerald-300/10 text-emerald-100'
+                  : 'border border-red-300/25 bg-red-300/10 text-red-100'
+              }`}>
+                {bookingMessage.text}
+              </div>
+            )}
           </form>
-        </div>
-      </div>
 
-      <div className="space-y-5">
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.32em] text-teal-200">Rooms</p>
-            <h2 className="mt-2 text-3xl font-semibold text-white" style={{ fontFamily: 'Sora, sans-serif' }}>
-              Available room types
-            </h2>
-          </div>
-          <p className="text-sm text-slate-300">
-            Showing {rooms.length} room option{rooms.length === 1 ? '' : 's'}
-          </p>
-        </div>
-
-        {rooms.length === 0 ? (
-          <div className="rounded-[2rem] border border-white/10 bg-white/5 p-8 text-center text-slate-300">
-            No rooms matched the selected dates or guest count.
-          </div>
-        ) : (
-          <div className="grid gap-6 lg:grid-cols-2">
-            {rooms.map((room) => (
-              <article
-                className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 shadow-xl shadow-black/20"
-                key={room._id}
-              >
-                <div className="h-48 overflow-hidden">
-                  <img alt={room.type} className="h-full w-full object-cover" src={getRoomImage(room)} />
+          <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6">
+            <p className="text-sm uppercase tracking-[0.32em] text-amber-200">Gallery</p>
+            <h2 className="mt-3 text-2xl font-['Playfair_Display'] font-bold text-white">Property visuals</h2>
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              {galleryImages.slice(0, 4).map((image, index) => (
+                <div className="overflow-hidden rounded-[1.2rem]" key={`${image}-${index}`}>
+                  <img alt={`Property visual ${index + 1}`} className="h-36 w-full object-cover" src={image} />
                 </div>
-                <div className="space-y-4 p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.28em] text-slate-400">Room {room.roomNumber}</p>
-                      <h3 className="mt-2 text-2xl font-semibold text-white" style={{ fontFamily: 'Sora, sans-serif' }}>
-                        {toTitleCase(room.type)}
-                      </h3>
-                    </div>
-                    <p className="text-lg font-semibold text-teal-200">{formatCurrency(room.pricePerNight)}</p>
-                  </div>
-
-                  <p className="text-sm text-slate-300">Capacity: {room.capacity} guest{room.capacity === 1 ? '' : 's'}</p>
-
-                  <div className="flex flex-wrap gap-2">
-                    {(room.amenities || []).map((amenity) => (
-                      <span
-                        className="rounded-full border border-white/10 bg-slate-900/70 px-3 py-1 text-xs uppercase tracking-[0.22em] text-slate-300"
-                        key={amenity}
-                      >
-                        {amenity}
-                      </span>
-                    ))}
-                  </div>
-
-                  <Link
-                    className="inline-flex rounded-full bg-teal-300 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-teal-200"
-                    to={`/bookings?roomId=${room._id}&hotelId=${hotel._id}`}
-                  >
-                    Book this room
-                  </Link>
-                </div>
-              </article>
-            ))}
+              ))}
+            </div>
+            {!galleryImages.length && (
+              <p className="mt-4 text-sm text-slate-400">
+                Add images in hotel or room records from the dashboard to populate this gallery.
+              </p>
+            )}
           </div>
-        )}
-      </div>
-    </section>
+        </div>
+      </section>
+    </div>
   );
 }

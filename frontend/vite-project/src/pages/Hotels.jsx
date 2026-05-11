@@ -1,201 +1,106 @@
-import { useEffect, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import api, { getApiErrorMessage } from '../../services/api.js';
 import HotelCard from '../components/HotelCard.jsx';
 import Loader from '../components/Loader.jsx';
-
-const initialFilters = {
-  city: '',
-  state: '',
-  minRating: '',
-};
+import { resolveEntityId } from '../utils/hotel.js';
 
 export default function Hotels() {
-  const [filters, setFilters] = useState(initialFilters);
-  const [hotels, setHotels] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [hotels, setHotels] = useState([]);
   const [error, setError] = useState('');
-  const [page, setPage] = useState(1);
-  const [pagination, setPagination] = useState({ totalPages: 1, total: 0 });
+  const [search, setSearch] = useState('');
+  const deferredSearch = useDeferredValue(search.trim().toLowerCase());
 
   useEffect(() => {
-    let ignore = false;
+    let active = true;
 
-    const loadInitialHotels = async () => {
+    const loadHotels = async () => {
+      setLoading(true);
+      setError('');
+
       try {
-        const { data } = await api.get('/hotels', {
-          params: {
-            page: 1,
-            limit: 6,
-            ...initialFilters,
-          },
-        });
-
-        if (ignore) {
-          return;
+        const { data } = await api.get('/hotels', { params: { limit: 100 } });
+        if (active) {
+          setHotels(data.hotels || []);
         }
-
-        setHotels(data.hotels || []);
-        setPagination({
-          totalPages: Number(data.totalPages || 1),
-          total: Number(data.total || 0),
-        });
-        setPage(Number(data.currentPage || 1));
-      } catch (loadError) {
-        if (!ignore) {
-          setError(getApiErrorMessage(loadError, 'Unable to load hotels.'));
+      } catch (requestError) {
+        if (active) {
+          setError(getApiErrorMessage(requestError, 'Unable to load hotel inventory.'));
         }
       } finally {
-        if (!ignore) {
+        if (active) {
           setLoading(false);
         }
       }
     };
 
-    loadInitialHotels();
+    loadHotels();
 
     return () => {
-      ignore = true;
+      active = false;
     };
   }, []);
 
-  const loadHotels = async (nextPage = page) => {
-    setLoading(true);
-    setError('');
-
-    try {
-      const { data } = await api.get('/hotels', {
-        params: {
-          page: nextPage,
-          limit: 6,
-          ...filters,
-        },
-      });
-
-      setHotels(data.hotels || []);
-      setPagination({
-        totalPages: Number(data.totalPages || 1),
-        total: Number(data.total || 0),
-      });
-      setPage(Number(data.currentPage || nextPage));
-    } catch (loadError) {
-      setError(getApiErrorMessage(loadError, 'Unable to load hotels.'));
-    } finally {
-      setLoading(false);
+  const filteredHotels = useMemo(() => {
+    if (!deferredSearch) {
+      return hotels;
     }
-  };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    await loadHotels(1);
-  };
+    return hotels.filter((hotel) => {
+      const haystack = [hotel.name, hotel.city, hotel.state, ...(hotel.amenities || [])]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      return haystack.includes(deferredSearch);
+    });
+  }, [deferredSearch, hotels]);
+
+  if (loading) {
+    return <div className="flex justify-center px-4 py-20"><Loader label="Loading hotels..." /></div>;
+  }
 
   return (
-    <section className="mx-auto w-full max-w-7xl space-y-8 px-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+    <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+      <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.32em] text-teal-200">Hotel discovery</p>
-          <h1 className="mt-2 text-4xl font-semibold text-white" style={{ fontFamily: 'Sora, sans-serif' }}>
-            Find the right stay for your trip
-          </h1>
+          <p className="text-sm uppercase tracking-[0.34em] text-amber-200">Collection</p>
+          <h1 className="mt-3 text-4xl font-['Playfair_Display'] font-bold text-white sm:text-5xl">All Hotels & Suites</h1>
+          <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
+            Every card below is populated from backend hotel data, including price, rating, amenities, and location.
+          </p>
         </div>
-        <p className="text-sm text-slate-300">
-          Showing {pagination.total} result{pagination.total === 1 ? '' : 's'}
-        </p>
+        <label className="w-full max-w-md space-y-2 text-sm text-slate-200">
+          <span>Search hotels, cities, or amenities</span>
+          <input
+            className="w-full rounded-xl border border-white/[0.15] bg-black/[0.45] px-4 py-3 text-white outline-none transition focus:border-gold/50"
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Try Mumbai, spa, pool..."
+            type="text"
+            value={search}
+          />
+        </label>
       </div>
 
-      <form
-        className="grid gap-4 rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur lg:grid-cols-[1.4fr_1.4fr_0.8fr_auto]"
-        onSubmit={handleSubmit}
-      >
-        <label className="space-y-2 text-sm text-slate-200">
-          <span>City</span>
-          <input
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-white outline-none transition focus:border-teal-300/60"
-            name="city"
-            onChange={(event) => setFilters((current) => ({ ...current, city: event.target.value }))}
-            placeholder="Jaipur"
-            value={filters.city}
-          />
-        </label>
-
-        <label className="space-y-2 text-sm text-slate-200">
-          <span>State</span>
-          <input
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-white outline-none transition focus:border-teal-300/60"
-            name="state"
-            onChange={(event) => setFilters((current) => ({ ...current, state: event.target.value }))}
-            placeholder="Rajasthan"
-            value={filters.state}
-          />
-        </label>
-
-        <label className="space-y-2 text-sm text-slate-200">
-          <span>Minimum rating</span>
-          <select
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-white outline-none transition focus:border-teal-300/60"
-            name="minRating"
-            onChange={(event) => setFilters((current) => ({ ...current, minRating: event.target.value }))}
-            value={filters.minRating}
-          >
-            <option value="">Any</option>
-            <option value="2">2+</option>
-            <option value="3">3+</option>
-            <option value="4">4+</option>
-            <option value="4.5">4.5+</option>
-          </select>
-        </label>
-
-        <button
-          className="rounded-2xl bg-teal-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-teal-200"
-          type="submit"
-        >
-          Search
-        </button>
-      </form>
-
-      {loading ? (
-        <div className="flex min-h-[280px] items-center justify-center rounded-[2rem] border border-white/10 bg-white/5">
-          <Loader label="Loading hotels..." />
-        </div>
-      ) : error ? (
-        <div className="rounded-[2rem] border border-red-300/20 bg-red-300/10 p-6 text-sm text-red-100">
+      {error && (
+        <div className="mb-6 rounded-[1.75rem] border border-red-300/25 bg-red-300/10 p-5 text-red-100">
           {error}
         </div>
-      ) : hotels.length === 0 ? (
-        <div className="rounded-[2rem] border border-white/10 bg-white/5 p-8 text-center text-slate-300">
-          No hotels matched these filters. Try a broader city or lower minimum rating.
-        </div>
-      ) : (
-        <>
-          <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
-            {hotels.map((hotel) => (
-              <HotelCard hotel={hotel} key={hotel._id} />
-            ))}
-          </div>
-
-          <div className="flex items-center justify-center gap-3">
-            <button
-              className="rounded-full border border-white/10 px-4 py-2 text-sm text-white transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={page <= 1}
-              onClick={() => loadHotels(page - 1)}
-              type="button"
-            >
-              Previous
-            </button>
-            <span className="rounded-full bg-white/5 px-4 py-2 text-sm text-slate-200">
-              Page {page} of {pagination.totalPages}
-            </span>
-            <button
-              className="rounded-full border border-white/10 px-4 py-2 text-sm text-white transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={page >= pagination.totalPages}
-              onClick={() => loadHotels(page + 1)}
-              type="button"
-            >
-              Next
-            </button>
-          </div>
-        </>
       )}
-    </section>
+
+      <div className="mb-6 text-sm text-slate-400">
+        Showing {filteredHotels.length} of {hotels.length} hotels
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        {filteredHotels.map((hotel) => <HotelCard hotel={hotel} key={resolveEntityId(hotel)} />)}
+      </div>
+
+      {!filteredHotels.length && (
+        <div className="mt-8 rounded-[1.75rem] border border-white/10 bg-white/5 p-8 text-center text-slate-300">
+          No hotels matched your search. Try another city or amenity.
+        </div>
+      )}
+    </div>
   );
 }

@@ -1,152 +1,135 @@
 import { useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
-import useAuth from '../../hooks/useAuth.js';
-
-const navLinkClass = ({ isActive }) => (
-  `rounded-full px-4 py-2 text-sm font-medium transition ${
-    isActive
-      ? 'bg-white/10 text-white'
-      : 'text-slate-300 hover:bg-white/5 hover:text-white'
-  }`
-);
+import { Link, useNavigate } from 'react-router-dom';
+import useAuth from '../../../hooks/useAuth.js';
 
 export default function Navbar() {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const { isAdmin, isAuthenticated, logout, user } = useAuth();
-  const adminUrl = import.meta.env.VITE_ADMIN_URL || 'http://localhost:3000';
+  const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
+  const { isAuthenticated, logout, user } = useAuth();
 
-  const links = [
-    { to: '/', label: 'Home' },
-    { to: '/hotels', label: 'Hotels' },
-    { to: '/bookings', label: 'My Bookings' },
+  const handleLogout = () => {
+    logout();
+    setIsOpen(false);
+    navigate('/');
+  };
+
+  const navItems = [
+    { name: 'Home', path: '/', type: 'route' },
+    { name: 'Hotels', path: '/hotels', type: 'route' },
+    { name: 'Amenities', path: '/#amenities', type: 'anchor' },
+    { name: 'Gallery', path: '/#gallery', type: 'anchor' },
+    { name: 'Bookings', path: '/bookings', type: 'route' },
   ];
 
+  const renderNavLink = (item, mobile = false) => {
+    const className = mobile
+      ? 'text-sm uppercase tracking-[0.28em] text-white/80 transition hover:text-gold'
+      : 'text-sm uppercase tracking-[0.24em] text-white/80 transition hover:text-gold';
+
+    if (item.type === 'anchor') {
+      return (
+        <a
+          className={className}
+          href={item.path}
+          key={item.name}
+          onClick={() => setIsOpen(false)}
+        >
+          {item.name}
+        </a>
+      );
+    }
+
+    return (
+      <Link
+        className={className}
+        key={item.name}
+        onClick={() => setIsOpen(false)}
+        to={item.path}
+      >
+        {item.name}
+      </Link>
+    );
+  };
+
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-slate-950/75 backdrop-blur-xl">
-      <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-4">
-        <Link className="flex items-center gap-3" to="/">
-          <span className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-teal-300 to-amber-200 text-lg font-black text-slate-950">
-            H
-          </span>
-          <div>
-            <p className="text-xs uppercase tracking-[0.32em] text-slate-400">Stay smarter</p>
-            <p className="text-lg font-semibold text-white" style={{ fontFamily: 'Sora, sans-serif' }}>
-              Hotel Haven
-            </p>
-          </div>
-        </Link>
+    <nav className="fixed top-0 z-50 w-full border-b border-gold/[0.18] bg-black/70 backdrop-blur-xl">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="relative flex min-h-16 items-center justify-between gap-4 py-3">
+          <div className="pointer-events-none absolute inset-x-0 -top-8 h-16 bg-[radial-gradient(ellipse_at_center,rgba(200,169,107,0.20),transparent_60%)]" />
 
-        <nav className="hidden items-center gap-2 md:flex">
-          {links.map((link) => (
-            <NavLink key={link.to} className={navLinkClass} to={link.to}>
-              {link.label}
-            </NavLink>
-          ))}
-        </nav>
+          <Link
+            to="/"
+            className="relative text-xl font-['Playfair_Display'] font-bold tracking-wide text-gold sm:text-2xl"
+          >
+            EliteHaven
+          </Link>
 
-        <div className="hidden items-center gap-3 md:flex">
-          {isAuthenticated ? (
-            <>
-              <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-right">
-                <p className="text-xs uppercase tracking-[0.25em] text-slate-400">Signed in</p>
-                <p className="text-sm font-semibold text-white">{user?.name}</p>
-              </div>
-              {isAdmin && (
-                <a
-                  className="rounded-full border border-amber-200/30 bg-amber-200/15 px-4 py-2 text-sm font-semibold text-amber-100 transition hover:bg-amber-200/25"
-                  href={adminUrl}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  Admin Panel
-                </a>
-              )}
+
+          <div className="hidden items-center gap-6 md:flex">
+            {navItems.map((item) => renderNavLink(item))}
+            {isAuthenticated && (
+              <span className="max-w-32 truncate text-sm text-slate-300">{user?.name}</span>
+            )}
+            {!isAuthenticated ? (
+              <Link
+                className="rounded-full bg-gold px-5 py-2 text-sm font-semibold text-black transition hover:bg-gold/90"
+                to="/login"
+              >
+                Sign In
+              </Link>
+            ) : (
               <button
-                className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/5"
-                onClick={logout}
+                className="rounded-full border border-gold/40 px-5 py-2 text-sm font-semibold text-gold transition hover:bg-gold/10"
+                onClick={handleLogout}
                 type="button"
               >
                 Logout
               </button>
-            </>
-          ) : (
-            <>
-              <NavLink className={navLinkClass} to="/login">
-                Login
-              </NavLink>
-              <NavLink
-                className="rounded-full bg-teal-300 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-teal-200"
-                to="/register"
-              >
-                Create account
-              </NavLink>
-            </>
-          )}
-        </div>
+            )}
+          </div>
 
-        <button
-          className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 md:hidden"
-          onClick={() => setMenuOpen((current) => !current)}
-          type="button"
-        >
-          Menu
-        </button>
+          <button
+            aria-label={isOpen ? 'Close menu' : 'Open menu'}
+            className="rounded-full border border-white/10 p-2 text-xl text-white transition hover:bg-white/5 md:hidden"
+            onClick={() => setIsOpen((current) => !current)}
+            type="button"
+          >
+            <i className={`fas ${isOpen ? 'fa-times' : 'fa-bars'}`}></i>
+          </button>
+        </div>
       </div>
 
-      {menuOpen && (
-        <div className="border-t border-white/10 bg-slate-950/95 md:hidden">
-          <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-4 py-4">
-            {links.map((link) => (
-              <NavLink
-                key={link.to}
-                className={navLinkClass}
-                onClick={() => setMenuOpen(false)}
-                to={link.to}
+      {isOpen && (
+        <div className="border-t border-gold/[0.15] bg-black/95 px-4 py-4 backdrop-blur-xl md:hidden">
+          <div className="mx-auto flex max-w-7xl flex-col gap-4">
+            {isAuthenticated && (
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
+                Signed in as {user?.name || 'Guest'}
+              </div>
+            )}
+            <div className="flex flex-col gap-4">
+              {navItems.map((item) => renderNavLink(item, true))}
+            </div>
+            {!isAuthenticated ? (
+              <Link
+                className="rounded-full bg-gold px-6 py-3 text-center text-sm font-semibold text-black"
+                onClick={() => setIsOpen(false)}
+                to="/login"
               >
-                {link.label}
-              </NavLink>
-            ))}
-
-            {isAuthenticated ? (
-              <>
-                {isAdmin && (
-                  <a
-                    className="rounded-full border border-amber-200/30 bg-amber-200/15 px-4 py-2 text-sm font-semibold text-amber-100"
-                    href={adminUrl}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    Open admin panel
-                  </a>
-                )}
-                <button
-                  className="rounded-full border border-white/10 px-4 py-2 text-left text-sm font-semibold text-white"
-                  onClick={() => {
-                    logout();
-                    setMenuOpen(false);
-                  }}
-                  type="button"
-                >
-                  Logout
-                </button>
-              </>
+                Sign In
+              </Link>
             ) : (
-              <>
-                <NavLink className={navLinkClass} onClick={() => setMenuOpen(false)} to="/login">
-                  Login
-                </NavLink>
-                <NavLink
-                  className="rounded-full bg-teal-300 px-4 py-2 text-sm font-semibold text-slate-950"
-                  onClick={() => setMenuOpen(false)}
-                  to="/register"
-                >
-                  Create account
-                </NavLink>
-              </>
+              <button
+                className="rounded-full border border-gold/40 px-6 py-3 text-sm font-semibold text-gold"
+                onClick={handleLogout}
+                type="button"
+              >
+                Logout
+              </button>
             )}
           </div>
         </div>
       )}
-    </header>
+    </nav>
   );
 }

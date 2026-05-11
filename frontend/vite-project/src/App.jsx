@@ -41,7 +41,7 @@ export default function App() {
     <BrowserRouter>
       <div className="min-h-screen bg-transparent text-slate-100">
         <Navbar />
-        <main className="pb-16 pt-24">
+        <main className="pb-16 pt-20 sm:pt-24">
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/hotels" element={<Hotels />} />

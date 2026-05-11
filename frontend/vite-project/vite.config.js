@@ -1,7 +1,16 @@
+/** @type {import('tailwindcss').Config} */
 export default {
-  server: {
-    proxy: {
-      '/api': 'http://localhost:5000',
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  theme: {
+    extend: {
+      colors: {
+        gold: "#C8A96B",
+      },
+      fontFamily: {
+        playfair: ["Playfair Display", "serif"],
+        poppins: ["Poppins", "sans-serif"],
+      },
     },
   },
+  plugins: [],
 };

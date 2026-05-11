@@ -1,154 +1,88 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth.js';
 import { getApiErrorMessage } from '../../services/api.js';
 
 export default function Register() {
-  const navigate = useNavigate();
   const { register } = useAuth();
-
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    password: '',
-    confirmPassword: '',
-  });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const redirectTo = location.state?.from || '/';
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     setError('');
-
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match.');
-      return;
-    }
-
     setLoading(true);
 
     try {
-      await register({
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        password: formData.password,
-      });
-      navigate('/', { replace: true });
-    } catch (submitError) {
-      setError(getApiErrorMessage(submitError, 'Unable to create your account.'));
+      await register({ ...form, role: 'customer' });
+      navigate(redirectTo, { replace: true });
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, 'Unable to create your account.'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <section className="mx-auto flex min-h-[70vh] w-full max-w-7xl items-center justify-center px-4">
-      <div className="grid w-full max-w-5xl overflow-hidden rounded-[2.5rem] border border-white/10 bg-white/5 shadow-2xl shadow-black/20 backdrop-blur lg:grid-cols-[1.02fr_0.98fr]">
-        <form className="p-8 md:p-10" onSubmit={handleSubmit}>
-          <p className="text-xs uppercase tracking-[0.34em] text-slate-400">Create account</p>
-          <h1 className="mt-3 text-3xl font-semibold text-white" style={{ fontFamily: 'Sora, sans-serif' }}>
-            Join and start booking smarter
-          </h1>
-          <p className="mt-3 text-sm leading-7 text-slate-300">
-            Create your guest account now. Admin accounts can also be created from the dashboard when bootstrapping the platform.
-          </p>
-
-          {error && (
-            <div className="mt-5 rounded-2xl border border-red-300/20 bg-red-300/10 p-4 text-sm text-red-100">
-              {error}
-            </div>
-          )}
-
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            <label className="space-y-2 text-sm text-slate-200 md:col-span-2">
-              <span>Full name</span>
-              <input
-                className="w-full rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-white outline-none focus:border-teal-300/60"
-                onChange={(event) => setFormData((current) => ({ ...current, name: event.target.value }))}
-                placeholder="Aarav Sharma"
-                type="text"
-                value={formData.name}
-              />
-            </label>
-
-            <label className="space-y-2 text-sm text-slate-200">
-              <span>Email</span>
-              <input
-                className="w-full rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-white outline-none focus:border-teal-300/60"
-                onChange={(event) => setFormData((current) => ({ ...current, email: event.target.value }))}
-                placeholder="guest@example.com"
-                type="email"
-                value={formData.email}
-              />
-            </label>
-
-            <label className="space-y-2 text-sm text-slate-200">
-              <span>Phone</span>
-              <input
-                className="w-full rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-white outline-none focus:border-teal-300/60"
-                onChange={(event) => setFormData((current) => ({ ...current, phone: event.target.value }))}
-                placeholder="+91 98765 43210"
-                type="tel"
-                value={formData.phone}
-              />
-            </label>
-
-            <label className="space-y-2 text-sm text-slate-200">
-              <span>Password</span>
-              <input
-                className="w-full rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-white outline-none focus:border-teal-300/60"
-                onChange={(event) => setFormData((current) => ({ ...current, password: event.target.value }))}
-                placeholder="At least 6 characters"
-                type="password"
-                value={formData.password}
-              />
-            </label>
-
-            <label className="space-y-2 text-sm text-slate-200">
-              <span>Confirm password</span>
-              <input
-                className="w-full rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-white outline-none focus:border-teal-300/60"
-                onChange={(event) => setFormData((current) => ({ ...current, confirmPassword: event.target.value }))}
-                placeholder="Repeat your password"
-                type="password"
-                value={formData.confirmPassword}
-              />
-            </label>
+    <div className="mx-auto max-w-md px-4 py-14 sm:px-6 sm:py-20">
+      <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur-sm sm:p-8">
+        <h1 className="mb-3 text-center text-3xl font-['Playfair_Display'] font-bold text-gold">Create Account</h1>
+        <p className="text-center text-sm leading-6 text-slate-300">
+          Register once to manage bookings and reserve rooms directly from the site.
+        </p>
+        {error && (
+          <div className="mt-5 rounded-2xl border border-red-300/25 bg-red-300/10 px-4 py-3 text-sm text-red-100">
+            {error}
           </div>
-
+        )}
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          <input
+            className="mt-6 w-full rounded-xl border border-white/20 bg-black/60 p-3 text-white outline-none transition focus:border-gold/50"
+            onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))}
+            placeholder="Full Name"
+            required
+            type="text"
+            value={form.name}
+          />
+          <input
+            className="w-full rounded-xl border border-white/20 bg-black/60 p-3 text-white outline-none transition focus:border-gold/50"
+            onChange={(e) => setForm((current) => ({ ...current, phone: e.target.value }))}
+            placeholder="Phone Number"
+            type="tel"
+            value={form.phone}
+          />
+          <input
+            className="w-full rounded-xl border border-white/20 bg-black/60 p-3 text-white outline-none transition focus:border-gold/50"
+            onChange={(e) => setForm((current) => ({ ...current, email: e.target.value }))}
+            placeholder="Email"
+            required
+            type="email"
+            value={form.email}
+          />
+          <input
+            className="w-full rounded-xl border border-white/20 bg-black/60 p-3 text-white outline-none transition focus:border-gold/50"
+            onChange={(e) => setForm((current) => ({ ...current, password: e.target.value }))}
+            placeholder="Password"
+            required
+            type="password"
+            value={form.password}
+          />
           <button
-            className="mt-6 w-full rounded-2xl bg-teal-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-teal-200 disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-full bg-gold py-3 font-semibold text-black transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-70"
             disabled={loading}
             type="submit"
           >
-            {loading ? 'Creating account...' : 'Create account'}
+            {loading ? 'Creating account...' : 'Register'}
           </button>
-
-          <p className="mt-6 text-sm text-slate-300">
-            Already have an account?{' '}
-            <Link className="font-semibold text-teal-200 transition hover:text-white" to="/login">
-              Login
-            </Link>
-          </p>
         </form>
-
-        <div className="hidden bg-gradient-to-br from-amber-200/20 via-white/5 to-transparent p-10 lg:block">
-          <p className="text-xs uppercase tracking-[0.34em] text-amber-100">Why sign up?</p>
-          <div className="mt-5 space-y-4">
-            {[
-              'Track booking requests and cancellations from one place.',
-              'Move from browsing hotels to booking without losing progress.',
-              'Use the same credentials for guest flows and, if authorized, admin access.',
-            ].map((point) => (
-              <div key={point} className="rounded-[1.5rem] border border-white/10 bg-slate-950/35 p-5 text-sm leading-7 text-slate-200">
-                {point}
-              </div>
-            ))}
-          </div>
-        </div>
+        <p className="mt-4 text-center text-sm text-white/50">
+          Already have an account? <Link className="text-gold" to="/login">Sign In</Link>
+        </p>
       </div>
-    </section>
+    </div>
   );
 }
