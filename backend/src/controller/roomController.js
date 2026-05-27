@@ -1,5 +1,6 @@
 import Room from '../models/Room.js';
-import Booking from '../models/Booking.js';
+import { toPositiveInteger } from '../utils/helpers.js';
+import { buildRoomAvailabilityFilter } from '../utils/roomFilters.js';
 
 // @desc    Create room (admin only)
 // @route   POST /api/rooms
@@ -25,25 +26,15 @@ export const getRooms = async (req, res) => {
       page = 1,
       limit = 10,
     } = req.query;
-    const filter = {};
-    if (hotelId) filter.hotelId = hotelId;
-    if (type) filter.type = type;
-    if (guests) filter.capacity = { $gte: Number(guests) };
-
-    // If checkIn and checkOut provided, exclude rooms that are booked in that period
-    let bookedRoomIds = [];
-    if (checkIn && checkOut) {
-      const overlappingBookings = await Booking.find({
-        status: { $in: ['confirmed', 'pending'] },
-        checkInDate: { $lt: new Date(checkOut) },
-        checkOutDate: { $gt: new Date(checkIn) },
-      }).select('roomId');
-      bookedRoomIds = overlappingBookings.map(b => b.roomId);
-      filter._id = { $nin: bookedRoomIds };
-    }
-
-    const pageNumber = Number(page);
-    const limitNumber = Number(limit);
+    const filter = await buildRoomAvailabilityFilter({
+      hotelId,
+      checkIn,
+      checkOut,
+      type,
+      guests,
+    });
+    const pageNumber = toPositiveInteger(page, 1);
+    const limitNumber = toPositiveInteger(limit, 10);
 
     const rooms = await Room.find(filter)
       .populate('hotelId', 'name city')

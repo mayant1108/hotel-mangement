@@ -41,7 +41,7 @@ export default function Register() {
         )}
         <form className="space-y-4" onSubmit={handleSubmit}>
           <input
-            className="mt-6 w-full rounded-xl border border-white/20 bg-black/60 p-3 text-white outline-none transition focus:border-gold/50"
+            className="ui-field mt-6"
             onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))}
             placeholder="Full Name"
             required
@@ -49,14 +49,14 @@ export default function Register() {
             value={form.name}
           />
           <input
-            className="w-full rounded-xl border border-white/20 bg-black/60 p-3 text-white outline-none transition focus:border-gold/50"
+            className="ui-field"
             onChange={(e) => setForm((current) => ({ ...current, phone: e.target.value }))}
             placeholder="Phone Number"
             type="tel"
             value={form.phone}
           />
           <input
-            className="w-full rounded-xl border border-white/20 bg-black/60 p-3 text-white outline-none transition focus:border-gold/50"
+            className="ui-field"
             onChange={(e) => setForm((current) => ({ ...current, email: e.target.value }))}
             placeholder="Email"
             required
@@ -64,7 +64,7 @@ export default function Register() {
             value={form.email}
           />
           <input
-            className="w-full rounded-xl border border-white/20 bg-black/60 p-3 text-white outline-none transition focus:border-gold/50"
+            className="ui-field"
             onChange={(e) => setForm((current) => ({ ...current, password: e.target.value }))}
             placeholder="Password"
             required
@@ -72,10 +72,11 @@ export default function Register() {
             value={form.password}
           />
           <button
-            className="w-full rounded-full bg-gold py-3 font-semibold text-black transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-70"
+            className="ui-btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
             disabled={loading}
             type="submit"
           >
+
             {loading ? 'Creating account...' : 'Register'}
           </button>
         </form>

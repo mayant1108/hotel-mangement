@@ -53,6 +53,7 @@ const defaultHotelForm = {
   zip: '',
   description: '',
   amenities: '',
+  images: '',
   rating: '',
   contactPhone: '',
   contactEmail: '',
@@ -65,6 +66,7 @@ const defaultRoomForm = {
   pricePerNight: '',
   capacity: '',
   amenities: '',
+  images: '',
 };
 
 function StatCard({ label, value, hint }) {
@@ -303,7 +305,7 @@ export default function HotelManagement() {
         ...hotelForm,
         rating: hotelForm.rating ? Number(hotelForm.rating) : 0,
         amenities: parseList(hotelForm.amenities),
-        images: [],
+        images: parseList(hotelForm.images),
       });
 
       setHotelForm(defaultHotelForm);
@@ -333,7 +335,7 @@ export default function HotelManagement() {
         pricePerNight: Number(roomForm.pricePerNight),
         capacity: Number(roomForm.capacity),
         amenities: parseList(roomForm.amenities),
-        images: [],
+        images: parseList(roomForm.images),
       });
 
       setRoomForm((current) => ({
@@ -777,6 +779,15 @@ export default function HotelManagement() {
                   value={hotelForm.amenities}
                 />
               </label>
+              <label className="space-y-2 text-sm text-slate-200 md:col-span-2">
+                <span>Image URLs (comma separated)</span>
+                <input
+                  className="w-full rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 text-white outline-none focus:border-white/30"
+                  onChange={(event) => setHotelForm((current) => ({ ...current, images: event.target.value }))}
+                  type="text"
+                  value={hotelForm.images}
+                />
+              </label>
               <label className="space-y-2 text-sm text-slate-200">
                 <span>Contact phone</span>
                 <input
@@ -873,6 +884,15 @@ export default function HotelManagement() {
                   onChange={(event) => setRoomForm((current) => ({ ...current, amenities: event.target.value }))}
                   type="text"
                   value={roomForm.amenities}
+                />
+              </label>
+              <label className="space-y-2 text-sm text-slate-200 md:col-span-2">
+                <span>Image URLs (comma separated)</span>
+                <input
+                  className="w-full rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 text-white outline-none focus:border-white/30"
+                  onChange={(event) => setRoomForm((current) => ({ ...current, images: event.target.value }))}
+                  type="text"
+                  value={roomForm.images}
                 />
               </label>
             </div>

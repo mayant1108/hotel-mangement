@@ -1,11 +1,10 @@
-import { startTransition, useEffect, useMemo, useState } from 'react';
+import { startTransition, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api, { getApiErrorMessage } from '../../services/api.js';
 import HotelCard from '../components/HotelCard.jsx';
 import Loader from '../components/Loader.jsx';
 import {
   buildHotelLocation,
-  collectUniqueValues,
   formatCurrency,
   getPrimaryImage,
   resolveEntityId,
@@ -23,6 +22,29 @@ const amenityIconMap = [
   { keyword: 'bar', icon: 'fas fa-glass-martini-alt' },
 ];
 
+const defaultCatalog = {
+  featuredHotel: null,
+  featuredHotels: [],
+  hotelOptions: [],
+  roomTypes: [],
+  uniqueAmenities: [],
+  galleryImages: [],
+  stats: {
+    hotelsCount: 0,
+    roomsCount: 0,
+    citiesCount: 0,
+    lowestStartingPrice: 0,
+  },
+};
+
+const defaultSearchForm = {
+  hotelId: '',
+  checkIn: '',
+  checkOut: '',
+  guests: 2,
+  type: '',
+};
+
 const getAmenityIcon = (amenity) => (
   amenityIconMap.find(({ keyword }) => amenity.toLowerCase().includes(keyword))?.icon || 'fas fa-concierge-bell'
 );
@@ -30,18 +52,11 @@ const getAmenityIcon = (amenity) => (
 export default function Home() {
   const [pageLoading, setPageLoading] = useState(true);
   const [pageError, setPageError] = useState('');
-  const [hotels, setHotels] = useState([]);
-  const [rooms, setRooms] = useState([]);
+  const [catalog, setCatalog] = useState(defaultCatalog);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [availabilityError, setAvailabilityError] = useState('');
   const [availabilityResults, setAvailabilityResults] = useState([]);
-  const [searchForm, setSearchForm] = useState({
-    hotelId: '',
-    checkIn: '',
-    checkOut: '',
-    guests: 2,
-    type: '',
-  });
+  const [searchForm, setSearchForm] = useState(defaultSearchForm);
 
   useEffect(() => {
     let active = true;
@@ -51,18 +66,32 @@ export default function Home() {
       setPageError('');
 
       try {
-        const [hotelResponse, roomResponse] = await Promise.all([
-          api.get('/hotels', { params: { limit: 6 } }),
-          api.get('/rooms', { params: { limit: 100 } }),
-        ]);
+        const { data } = await api.get('/hotels/catalog', {
+          params: {
+            hotelLimit: 6,
+            featuredLimit: 3,
+          },
+        });
 
         if (!active) {
           return;
         }
 
         startTransition(() => {
-          setHotels(hotelResponse.data.hotels || []);
-          setRooms(roomResponse.data.rooms || []);
+          setCatalog({
+            featuredHotel: data.featuredHotel || null,
+            featuredHotels: data.featuredHotels || [],
+            hotelOptions: data.hotelOptions || [],
+            roomTypes: data.roomTypes || [],
+            uniqueAmenities: data.uniqueAmenities || [],
+            galleryImages: data.galleryImages || [],
+            stats: {
+              hotelsCount: data.stats?.hotelsCount || 0,
+              roomsCount: data.stats?.roomsCount || 0,
+              citiesCount: data.stats?.citiesCount || 0,
+              lowestStartingPrice: data.stats?.lowestStartingPrice || 0,
+            },
+          });
         });
       } catch (requestError) {
         if (active) {
@@ -82,50 +111,25 @@ export default function Home() {
     };
   }, []);
 
-  const featuredHotel = hotels[0] || null;
-  const featuredHotels = hotels.slice(0, 3);
+  const {
+    featuredHotel,
+    featuredHotels,
+    galleryImages,
+    hotelOptions,
+    roomTypes,
+    stats,
+    uniqueAmenities,
+  } = catalog;
   const heroImage = getPrimaryImage(featuredHotel);
-  const uniqueAmenities = useMemo(
-    () => collectUniqueValues(
-      hotels.map((hotel) => hotel.amenities || []),
-      rooms.map((room) => room.amenities || []),
-    ).slice(0, 8),
-    [hotels, rooms],
-  );
-  const galleryImages = useMemo(
-    () => Array.from(
-      new Set(
-        [...hotels, ...rooms]
-          .map((item) => getPrimaryImage(item))
-          .filter(Boolean),
-      ),
-    ).slice(0, 8),
-    [hotels, rooms],
-  );
-
-  const stats = useMemo(() => {
-    const cities = new Set(hotels.map((hotel) => hotel.city).filter(Boolean));
-    const lowestPrice = hotels.reduce((minimum, hotel) => {
-      const currentPrice = Number(hotel.startingPrice || 0);
-      if (!currentPrice) {
-        return minimum;
-      }
-
-      return minimum === 0 ? currentPrice : Math.min(minimum, currentPrice);
-    }, 0);
-
-    return [
-      { label: 'Properties', value: hotels.length || 0 },
-      { label: 'Rooms', value: rooms.length || 0 },
-      { label: 'Cities', value: cities.size || 0 },
-      { label: 'Starting from', value: lowestPrice ? formatCurrency(lowestPrice) : 'Contact us' },
-    ];
-  }, [hotels, rooms]);
-
-  const roomTypes = useMemo(
-    () => Array.from(new Set(rooms.map((room) => room.type).filter(Boolean))),
-    [rooms],
-  );
+  const statsCards = [
+    { label: 'Hotels', value: stats.hotelsCount || 0 },
+    { label: 'Rooms', value: stats.roomsCount || 0 },
+    { label: 'Cities', value: stats.citiesCount || 0 },
+    {
+      label: 'Rates from',
+      value: stats.lowestStartingPrice ? formatCurrency(stats.lowestStartingPrice) : 'On request',
+    },
+  ];
 
   const handleAvailabilitySearch = async (event) => {
     event.preventDefault();
@@ -152,6 +156,19 @@ export default function Home() {
     }
   };
 
+  const buildAvailabilityLink = (room) => {
+    const hotelId = resolveEntityId(room.hotelId);
+    const params = new URLSearchParams({
+      room: resolveEntityId(room),
+      checkIn: searchForm.checkIn,
+      checkOut: searchForm.checkOut,
+      guests: String(searchForm.guests),
+      ...(searchForm.type ? { type: searchForm.type } : {}),
+    });
+
+    return `/hotels/${hotelId}?${params.toString()}`;
+  };
+
   return (
     <div className="bg-black">
       <section className="relative overflow-hidden px-4 pb-16 pt-8 sm:px-6 lg:px-8">
@@ -167,11 +184,11 @@ export default function Home() {
           <div className="pt-16 sm:pt-24">
             <p className="section-kicker">Discover your next stay</p>
             <h1 className="mt-4 max-w-4xl text-4xl font-extrabold leading-[1.05] text-white sm:text-5xl lg:text-7xl section-heading">
-              {featuredHotel ? `Stay at ${featuredHotel.name}` : 'Luxury stays, live availability'}
+              {featuredHotel ? `Stay at ${featuredHotel.name}` : 'Luxury stays with live availability'}
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-7 text-slate-200/90 sm:text-lg">
-              {featuredHotel?.description ||
-                'Experience a refined collection of properties with real-time room availability and seamless booking.'}
+              {featuredHotel?.description
+                || 'Discover premium hotels, real-time room availability, and a seamless reservation experience.'}
             </p>
             {featuredHotel && (
               <p className="mt-4 text-sm uppercase tracking-[0.28em] text-slate-300">
@@ -187,7 +204,7 @@ export default function Home() {
               </a>
             </div>
             <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-4">
-              {stats.map((stat) => (
+              {statsCards.map((stat) => (
                 <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.06] p-4 backdrop-blur" key={stat.label}>
                   <p className="text-xs uppercase tracking-[0.24em] text-slate-400">{stat.label}</p>
                   <p className="mt-3 text-2xl font-semibold text-white">{stat.value}</p>
@@ -212,8 +229,8 @@ export default function Home() {
                   value={searchForm.hotelId}
                 >
                   <option value="">All hotels</option>
-                  {hotels.map((hotel) => (
-                    <option key={resolveEntityId(hotel)} value={resolveEntityId(hotel)}>{hotel.name}</option>
+                  {hotelOptions.map((hotel) => (
+                    <option key={hotel._id} value={hotel._id}>{hotel.name}</option>
                   ))}
                 </select>
               </label>
@@ -278,10 +295,10 @@ export default function Home() {
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-          <div className="mb-12 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="mb-12 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="section-kicker">Featured stays</p>
-            <h2 className="mt-3 text-3xl font-['Playfair_Display'] font-bold text-white sm:text-5xl section-heading">Hotels from your backend</h2>
+            <h2 className="mt-3 text-3xl font-['Playfair_Display'] font-bold text-white sm:text-5xl section-heading">Curated hotels and suites</h2>
           </div>
 
           <Link className="text-sm font-semibold uppercase tracking-[0.24em] text-gold" to="/hotels">
@@ -291,7 +308,7 @@ export default function Home() {
 
         {pageLoading ? (
           <div className="flex justify-center py-20">
-            <Loader label="Loading live hotels..." />
+            <Loader label="Loading featured stays..." />
           </div>
         ) : pageError ? (
           <div className="rounded-[1.75rem] border border-red-300/25 bg-red-300/10 p-6 text-red-100">{pageError}</div>
@@ -302,8 +319,7 @@ export default function Home() {
         ) : (
           <div className="rounded-[1.75rem] border border-white/10 bg-white/5 p-8 text-center text-slate-300">
             <p className="mx-auto max-w-2xl text-sm leading-7">
-              Backend data is empty right now. The UI should still look complete:
-              set up hotels/rooms in the admin dashboard and they will appear instantly.
+              Our featured collection is being updated. Please check back soon for newly listed stays.
             </p>
             <div className="mt-6 grid gap-5 md:grid-cols-3">
               {[0, 1, 2].map((i) => (
@@ -326,7 +342,7 @@ export default function Home() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <p className="text-sm uppercase tracking-[0.34em] text-amber-200">Amenities</p>
-            <h2 className="mt-3 text-3xl font-['Playfair_Display'] font-bold text-white sm:text-5xl">What your properties offer</h2>
+            <h2 className="mt-3 text-3xl font-['Playfair_Display'] font-bold text-white sm:text-5xl">Signature amenities</h2>
           </div>
           <div className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-4">
             {uniqueAmenities.map((amenity) => (
@@ -338,7 +354,7 @@ export default function Home() {
           </div>
           {!uniqueAmenities.length && (
             <p className="mt-8 text-center text-sm text-slate-400">
-              Amenities not added yet (UI placeholder). Add hotel/room amenities from the dashboard to show real icons.
+              Amenities will appear here as properties are updated.
             </p>
           )}
         </div>
@@ -347,7 +363,7 @@ export default function Home() {
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8" id="gallery">
         <div className="mb-12 text-center">
           <p className="text-sm uppercase tracking-[0.34em] text-amber-200">Gallery</p>
-          <h2 className="mt-3 text-3xl font-['Playfair_Display'] font-bold text-white sm:text-5xl">Images served from backend data</h2>
+          <h2 className="mt-3 text-3xl font-['Playfair_Display'] font-bold text-white sm:text-5xl">Property gallery</h2>
         </div>
         {galleryImages.length ? (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -360,7 +376,7 @@ export default function Home() {
         ) : (
           <div className="rounded-[1.75rem] border border-white/10 bg-white/5 p-8 text-center text-slate-300">
             <p className="text-sm leading-7">
-              No images found in backend data yet (UI placeholder). Add image URLs in hotels/rooms to populate the gallery.
+              Property imagery will appear here as soon as it is published.
             </p>
             <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {[0, 1, 2, 3].map((i) => (
@@ -378,9 +394,9 @@ export default function Home() {
           <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
             <div className="rounded-[2rem] border border-white/10 bg-black/30 p-6">
               <p className="text-sm uppercase tracking-[0.34em] text-amber-200">Snapshot</p>
-              <h2 className="mt-3 text-3xl font-['Playfair_Display'] font-bold text-white">What the backend is telling us</h2>
+              <h2 className="mt-3 text-3xl font-['Playfair_Display'] font-bold text-white">Property highlights</h2>
               <div className="mt-8 space-y-4">
-                {hotels.slice(0, 3).map((hotel) => (
+                {featuredHotels.length ? featuredHotels.map((hotel) => (
                   <div className="rounded-[1.4rem] border border-white/10 bg-white/5 p-4" key={resolveEntityId(hotel)}>
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div>
@@ -391,9 +407,13 @@ export default function Home() {
                         {hotel.startingPrice ? formatCurrency(hotel.startingPrice) : 'Price pending'}
                       </p>
                     </div>
-                    <p className="mt-3 text-sm leading-6 text-slate-300">{hotel.description || 'Description coming from hotel inventory soon.'}</p>
+                    <p className="mt-3 text-sm leading-6 text-slate-300">{hotel.description || 'More details for this stay will be available soon.'}</p>
                   </div>
-                ))}
+                )) : (
+                  <div className="rounded-[1.4rem] border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+                    Highlights will appear here once featured properties are available.
+                  </div>
+                )}
               </div>
             </div>
 
@@ -402,39 +422,35 @@ export default function Home() {
               <h2 className="mt-3 text-3xl font-['Playfair_Display'] font-bold text-white">Rooms matching your search</h2>
               <div className="mt-8 grid gap-4">
                 {availabilityLoading && <Loader label="Checking rooms..." />}
-                {!availabilityLoading && availabilityResults.map((room) => {
-                  const hotelId = resolveEntityId(room.hotelId);
-
-                  return (
-                    <article className="rounded-[1.5rem] border border-white/10 bg-white/5 p-5" key={resolveEntityId(room)}>
-                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <h3 className="text-xl font-semibold text-white">
-                            Room {room.roomNumber} • {room.type}
-                          </h3>
-                          <p className="mt-2 text-sm text-slate-300">
-                            {room.hotelId?.name || 'Hotel'} • {room.hotelId?.city || 'City updating'} • Capacity {room.capacity}
-                          </p>
-                          <p className="mt-2 text-sm text-slate-400">
-                            {(room.amenities || []).slice(0, 4).join(', ') || 'Amenities updating soon'}
-                          </p>
-                        </div>
-                        <div className="text-left sm:text-right">
-                          <p className="text-2xl font-bold text-gold">{formatCurrency(room.pricePerNight)}</p>
-                          <Link
-                            className="mt-3 inline-flex items-center justify-center rounded-full border border-gold/30 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-gold transition hover:bg-gold/10"
-                            to={`/hotels/${hotelId}?room=${resolveEntityId(room)}`}
-                          >
-                            Book here
-                          </Link>
-                        </div>
+                {!availabilityLoading && availabilityResults.map((room) => (
+                  <article className="rounded-[1.5rem] border border-white/10 bg-white/5 p-5" key={resolveEntityId(room)}>
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <h3 className="text-xl font-semibold text-white">
+                          Room {room.roomNumber} - {room.type}
+                        </h3>
+                        <p className="mt-2 text-sm text-slate-300">
+                          {room.hotelId?.name || 'Hotel'} - {room.hotelId?.city || 'City details coming soon'} - Capacity {room.capacity}
+                        </p>
+                        <p className="mt-2 text-sm text-slate-400">
+                          {(room.amenities || []).slice(0, 4).join(', ') || 'Amenities will be shared soon'}
+                        </p>
                       </div>
-                    </article>
-                  );
-                })}
+                      <div className="text-left sm:text-right">
+                        <p className="text-2xl font-bold text-gold">{formatCurrency(room.pricePerNight)}</p>
+                        <Link
+                          className="mt-3 inline-flex items-center justify-center rounded-full border border-gold/30 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-gold transition hover:bg-gold/10"
+                          to={buildAvailabilityLink(room)}
+                        >
+                          Continue booking
+                        </Link>
+                      </div>
+                    </div>
+                  </article>
+                ))}
                 {!availabilityLoading && !availabilityResults.length && (
                   <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-6 text-sm text-slate-300">
-                    Search for dates above to see backend-filtered room availability.
+                    Search by dates above to view available rooms.
                   </div>
                 )}
               </div>

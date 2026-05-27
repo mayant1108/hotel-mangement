@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import useAuth from '../../../hooks/useAuth.js';
+import useAuth from '../../hooks/useAuth.js';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -54,6 +54,7 @@ export default function Navbar() {
   return (
     <nav className="fixed top-0 z-50 w-full border-b border-gold/[0.18] bg-black/70 backdrop-blur-xl">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+
         <div className="relative flex min-h-16 items-center justify-between gap-4 py-3">
           <div className="pointer-events-none absolute inset-x-0 -top-8 h-16 bg-[radial-gradient(ellipse_at_center,rgba(200,169,107,0.20),transparent_60%)]" />
 
@@ -103,24 +104,26 @@ export default function Navbar() {
         <div className="border-t border-gold/[0.15] bg-black/95 px-4 py-4 backdrop-blur-xl md:hidden">
           <div className="mx-auto flex max-w-7xl flex-col gap-4">
             {isAuthenticated && (
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
+              <div className="ui-card-soft px-4 py-3 text-sm text-slate-300">
                 Signed in as {user?.name || 'Guest'}
               </div>
             )}
+
             <div className="flex flex-col gap-4">
               {navItems.map((item) => renderNavLink(item, true))}
             </div>
             {!isAuthenticated ? (
               <Link
-                className="rounded-full bg-gold px-6 py-3 text-center text-sm font-semibold text-black"
+                className="ui-btn-primary text-sm"
                 onClick={() => setIsOpen(false)}
                 to="/login"
               >
                 Sign In
               </Link>
+
             ) : (
-              <button
-                className="rounded-full border border-gold/40 px-6 py-3 text-sm font-semibold text-gold"
+<button
+                className="ui-btn-secondary text-sm"
                 onClick={handleLogout}
                 type="button"
               >

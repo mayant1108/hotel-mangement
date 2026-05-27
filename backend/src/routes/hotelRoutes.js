@@ -1,6 +1,7 @@
 import express from 'express';
 import {
   createHotel,
+  getHotelCatalog,
   getHotels,
   getHotelById,
   updateHotel,
@@ -9,6 +10,8 @@ import {
 import { protect, adminOnly } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
+
+router.get('/catalog', getHotelCatalog);
 
 router.route('/')
   .get(getHotels)

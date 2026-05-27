@@ -31,6 +31,16 @@ export default function HotelDetails() {
   const [bookingMessage, setBookingMessage] = useState({ type: '', text: '' });
   const [bookingLoading, setBookingLoading] = useState(false);
 
+  const preselectedRoomId = searchParams.get('room') || '';
+  const requestedCheckIn = searchParams.get('checkIn') || '';
+  const requestedCheckOut = searchParams.get('checkOut') || '';
+  const requestedType = searchParams.get('type') || '';
+  const requestedGuests = Number(searchParams.get('guests') || 0);
+  const hasAvailabilityFilters = Boolean(
+    requestedCheckIn || requestedCheckOut || requestedGuests || requestedType,
+  );
+  const returnPath = `/hotels/${id}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+
   useEffect(() => {
     let active = true;
 
@@ -39,17 +49,23 @@ export default function HotelDetails() {
       setError('');
 
       try {
-        const [hotelResponse, roomResponse] = await Promise.all([
-          api.get(`/hotels/${id}`),
-          api.get('/rooms', { params: { hotelId: id, limit: 100 } }),
-        ]);
+        const { data } = await api.get(`/hotels/${id}`, {
+          params: {
+            includeRooms: 'true',
+            roomLimit: 100,
+            checkIn: requestedCheckIn || undefined,
+            checkOut: requestedCheckOut || undefined,
+            guests: requestedGuests || undefined,
+            type: requestedType || undefined,
+          },
+        });
 
         if (!active) {
           return;
         }
 
-        setHotel(hotelResponse.data || null);
-        setRooms(roomResponse.data.rooms || []);
+        setHotel(data || null);
+        setRooms(data.rooms || []);
       } catch (requestError) {
         if (active) {
           setError(getApiErrorMessage(requestError, 'Unable to load this hotel right now.'));
@@ -66,19 +82,17 @@ export default function HotelDetails() {
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [id, requestedCheckIn, requestedCheckOut, requestedGuests, requestedType]);
 
   useEffect(() => {
-    const preselectedRoomId = searchParams.get('room');
-    if (!preselectedRoomId) {
-      return;
-    }
-
     setBookingState((current) => ({
       ...current,
-      roomId: preselectedRoomId,
+      roomId: preselectedRoomId || current.roomId,
+      checkInDate: requestedCheckIn || current.checkInDate,
+      checkOutDate: requestedCheckOut || current.checkOutDate,
+      guests: requestedGuests > 0 ? requestedGuests : current.guests,
     }));
-  }, [searchParams]);
+  }, [preselectedRoomId, requestedCheckIn, requestedCheckOut, requestedGuests]);
 
   const selectedRoom = useMemo(
     () => rooms.find((room) => resolveEntityId(room) === bookingState.roomId) || null,
@@ -99,7 +113,7 @@ export default function HotelDetails() {
     setBookingMessage({ type: '', text: '' });
 
     if (!isAuthenticated) {
-      navigate('/login', { state: { from: `/hotels/${id}` } });
+      navigate('/login', { state: { from: returnPath } });
       return;
     }
 
@@ -190,11 +204,11 @@ export default function HotelDetails() {
           <div className="p-6 sm:p-8">
             <p className="text-sm uppercase tracking-[0.32em] text-amber-200">Hotel overview</p>
             <h1 className="mt-3 text-4xl font-['Playfair_Display'] font-bold text-gold">{hotel.name}</h1>
-            <p className="mt-3 text-base leading-7 text-slate-300">{hotel.description || 'Description coming from hotel inventory soon.'}</p>
+            <p className="mt-3 text-base leading-7 text-slate-300">{hotel.description || 'Thoughtful details for this property will be available soon.'}</p>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <div className="rounded-[1.5rem] border border-white/10 bg-black/20 p-4">
                 <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Location</p>
-                <p className="mt-2 text-sm text-white">{buildHotelLocation(hotel) || 'Location updating soon'}</p>
+                <p className="mt-2 text-sm text-white">{buildHotelLocation(hotel) || 'Location details coming soon'}</p>
                 <p className="mt-1 text-sm text-slate-400">{hotel.address}</p>
               </div>
               <div className="rounded-[1.5rem] border border-white/10 bg-black/20 p-4">
@@ -206,13 +220,13 @@ export default function HotelDetails() {
               </div>
               <div className="rounded-[1.5rem] border border-white/10 bg-black/20 p-4">
                 <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Contact</p>
-                <p className="mt-2 text-sm text-white">{hotel.contactPhone || 'Phone unavailable'}</p>
-                <p className="mt-1 text-sm text-slate-400">{hotel.contactEmail || 'Email unavailable'}</p>
+                <p className="mt-2 text-sm text-white">{hotel.contactPhone || 'Phone details will be shared soon'}</p>
+                <p className="mt-1 text-sm text-slate-400">{hotel.contactEmail || 'Email details will be shared soon'}</p>
               </div>
               <div className="rounded-[1.5rem] border border-white/10 bg-black/20 p-4">
                 <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Rating</p>
                 <p className="mt-2 text-2xl font-semibold text-white">{Number(hotel.rating || 0).toFixed(1)}</p>
-                <p className="mt-1 text-sm text-slate-400">Live rating from backend data</p>
+                <p className="mt-1 text-sm text-slate-400">Guest rating</p>
               </div>
             </div>
           </div>
@@ -223,7 +237,7 @@ export default function HotelDetails() {
         <div>
           <div className="mb-6">
             <p className="text-sm uppercase tracking-[0.32em] text-amber-200">Available rooms</p>
-            <h2 className="mt-3 text-3xl font-['Playfair_Display'] font-bold text-white">Choose a room from this hotel</h2>
+            <h2 className="mt-3 text-3xl font-['Playfair_Display'] font-bold text-white">Choose your room or suite</h2>
           </div>
           <div className="grid gap-5">
             {rooms.map((room) => {
@@ -235,14 +249,14 @@ export default function HotelDetails() {
                     <div>
                       <div className="flex flex-wrap items-center gap-3">
                         <h3 className="text-2xl font-semibold text-white">
-                          Room {room.roomNumber} • {room.type}
+                          Room {room.roomNumber} - {room.type}
                         </h3>
                         <span className="rounded-full bg-emerald-300/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100">
-                          {room.isAvailable ? 'Open' : 'Busy'}
+                          {room.isAvailable ? 'Available' : 'Unavailable'}
                         </span>
                       </div>
                       <p className="mt-3 text-sm text-slate-300">
-                        Capacity {room.capacity} • {formatCurrency(room.pricePerNight)} per night
+                        Capacity {room.capacity} - {formatCurrency(room.pricePerNight)} per night
                       </p>
                       <div className="mt-4 flex flex-wrap gap-2">
                         {(room.amenities || []).map((amenity) => (
@@ -252,7 +266,7 @@ export default function HotelDetails() {
                         ))}
                         {!room.amenities?.length && (
                           <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-400">
-                            Amenities updating soon
+                            Amenities will be listed soon
                           </span>
                         )}
                       </div>
@@ -279,7 +293,9 @@ export default function HotelDetails() {
 
             {!rooms.length && (
               <div className="rounded-[1.75rem] border border-white/10 bg-white/5 p-8 text-slate-300">
-                No rooms have been added for this hotel yet.
+                {hasAvailabilityFilters
+                  ? 'No rooms match the selected dates or guest count. Try another search.'
+                  : 'Rooms for this property will appear here as soon as they are available.'}
               </div>
             )}
           </div>
@@ -301,7 +317,7 @@ export default function HotelDetails() {
                   <option value="">Choose a room</option>
                   {rooms.map((room) => (
                     <option key={resolveEntityId(room)} value={resolveEntityId(room)}>
-                      Room {room.roomNumber} • {room.type} • {formatCurrency(room.pricePerNight)}
+                      Room {room.roomNumber} - {room.type} - {formatCurrency(room.pricePerNight)}
                     </option>
                   ))}
                 </select>
@@ -354,7 +370,7 @@ export default function HotelDetails() {
               disabled={bookingLoading || !rooms.length}
               type="submit"
             >
-              {bookingLoading ? 'Sending request...' : 'Book now'}
+              {bookingLoading ? 'Sending request...' : 'Send booking request'}
             </button>
             {bookingMessage.text && (
               <div className={`mt-4 rounded-2xl px-4 py-3 text-sm ${
@@ -379,7 +395,7 @@ export default function HotelDetails() {
             </div>
             {!galleryImages.length && (
               <p className="mt-4 text-sm text-slate-400">
-                Add images in hotel or room records from the dashboard to populate this gallery.
+                Property images will appear here as soon as they are published.
               </p>
             )}
           </div>

@@ -12,7 +12,7 @@ export default function HotelCard({ hotel }) {
   const fullStars = Math.floor(rating);
   const hasHalf = rating - fullStars >= 0.5;
   const hotelId = resolveEntityId(hotel);
-  const location = buildHotelLocation(hotel) || 'Location updating soon';
+  const location = buildHotelLocation(hotel) || 'Location details coming soon';
   const price = hotel?.startingPrice ? formatCurrency(hotel.startingPrice) : 'Contact for pricing';
 
   return (

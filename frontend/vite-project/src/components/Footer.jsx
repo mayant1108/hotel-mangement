@@ -34,7 +34,7 @@ export default function Footer() {
         <div>
           <h3 className="text-2xl font-['Playfair_Display'] font-bold text-gold">EliteHaven</h3>
           <p className="mt-2 text-sm text-white/50">
-            Live hotel inventory, smoother bookings, and responsive stays across every screen.
+            Refined stays, seamless reservations, and a polished booking experience across every screen.
           </p>
         </div>
         <div>
@@ -56,7 +56,7 @@ export default function Footer() {
               <p className="text-sm text-white/50">{featuredHotel.contactEmail || 'Email unavailable'}</p>
             </>
           ) : (
-            <p className="text-sm text-white/50">Hotel contact details will appear here once inventory is added.</p>
+            <p className="text-sm text-white/50">Hotel contact details will appear here as soon as they are published.</p>
           )}
         </div>
         <div>
@@ -69,7 +69,7 @@ export default function Footer() {
         </div>
       </div>
       <div className="mt-10 text-center text-xs text-white/30">
-        © 2026 EliteHaven. All rights reserved.
+        Copyright 2026 EliteHaven. All rights reserved.
       </div>
     </footer>
   );

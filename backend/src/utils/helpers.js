@@ -17,3 +17,11 @@ export const isValidDateRange = (checkIn, checkOut) => {
     && inDate < outDate
     && inDate >= today;
 };
+
+export const escapeRegex = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+export const toPositiveInteger = (value, fallback) => {
+  const parsedValue = Number.parseInt(value, 10);
+
+  return Number.isInteger(parsedValue) && parsedValue > 0 ? parsedValue : fallback;
+};

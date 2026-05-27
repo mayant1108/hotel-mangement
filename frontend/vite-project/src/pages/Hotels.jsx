@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useRef, useState } from 'react';
 import api, { getApiErrorMessage } from '../../services/api.js';
 import HotelCard from '../components/HotelCard.jsx';
 import Loader from '../components/Loader.jsx';
@@ -6,22 +6,37 @@ import { resolveEntityId } from '../utils/hotel.js';
 
 export default function Hotels() {
   const [loading, setLoading] = useState(true);
+  const [searching, setSearching] = useState(false);
   const [hotels, setHotels] = useState([]);
+  const [total, setTotal] = useState(0);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const deferredSearch = useDeferredValue(search.trim().toLowerCase());
+  const hasLoadedRef = useRef(false);
+  const deferredSearch = useDeferredValue(search.trim());
 
   useEffect(() => {
     let active = true;
 
     const loadHotels = async () => {
-      setLoading(true);
+      if (hasLoadedRef.current) {
+        setSearching(true);
+      } else {
+        setLoading(true);
+      }
+
       setError('');
 
       try {
-        const { data } = await api.get('/hotels', { params: { limit: 100 } });
+        const { data } = await api.get('/hotels', {
+          params: {
+            limit: 100,
+            search: deferredSearch || undefined,
+          },
+        });
+
         if (active) {
           setHotels(data.hotels || []);
+          setTotal(data.total || 0);
         }
       } catch (requestError) {
         if (active) {
@@ -29,7 +44,9 @@ export default function Hotels() {
         }
       } finally {
         if (active) {
+          hasLoadedRef.current = true;
           setLoading(false);
+          setSearching(false);
         }
       }
     };
@@ -39,22 +56,7 @@ export default function Hotels() {
     return () => {
       active = false;
     };
-  }, []);
-
-  const filteredHotels = useMemo(() => {
-    if (!deferredSearch) {
-      return hotels;
-    }
-
-    return hotels.filter((hotel) => {
-      const haystack = [hotel.name, hotel.city, hotel.state, ...(hotel.amenities || [])]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-
-      return haystack.includes(deferredSearch);
-    });
-  }, [deferredSearch, hotels]);
+  }, [deferredSearch]);
 
   if (loading) {
     return <div className="flex justify-center px-4 py-20"><Loader label="Loading hotels..." /></div>;
@@ -67,7 +69,7 @@ export default function Hotels() {
           <p className="text-sm uppercase tracking-[0.34em] text-amber-200">Collection</p>
           <h1 className="mt-3 text-4xl font-['Playfair_Display'] font-bold text-white sm:text-5xl">All Hotels & Suites</h1>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
-            Every card below is populated from backend hotel data, including price, rating, amenities, and location.
+            Browse our full collection with live pricing, amenities, ratings, and location details.
           </p>
         </div>
         <label className="w-full max-w-md space-y-2 text-sm text-slate-200">
@@ -88,17 +90,18 @@ export default function Hotels() {
         </div>
       )}
 
-      <div className="mb-6 text-sm text-slate-400">
-        Showing {filteredHotels.length} of {hotels.length} hotels
+      <div className="mb-6 flex flex-col gap-2 text-sm text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+        <span>{deferredSearch ? `Found ${total} matching stays` : `Showing ${total} hotels`}</span>
+        {searching && <span>Refreshing results...</span>}
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-        {filteredHotels.map((hotel) => <HotelCard hotel={hotel} key={resolveEntityId(hotel)} />)}
+        {hotels.map((hotel) => <HotelCard hotel={hotel} key={resolveEntityId(hotel)} />)}
       </div>
 
-      {!filteredHotels.length && (
+      {!hotels.length && (
         <div className="mt-8 rounded-[1.75rem] border border-white/10 bg-white/5 p-8 text-center text-slate-300">
-          No hotels matched your search. Try another city or amenity.
+          No stays matched your search. Try another city, hotel name, or amenity.
         </div>
       )}
     </div>

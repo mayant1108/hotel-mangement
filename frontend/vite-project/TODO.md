@@ -1,11 +1,28 @@
-# UI redesign checklist (Bergen Harbour Hotel-like)
+# UI “Official” Refinement - TODO
 
-- [x] Step 1: Add/adjust global theme styles in `src/index.css` (background texture, section header helpers)
-- [x] Step 2: Refine `src/components/Navbar.jsx` (spacing, separators/overlay, typography)
-- [x] Step 3: Update `src/pages/Home.jsx` hero + sections layout (spacing/radii/buttons)
-- [x] Step 4: Polish `src/components/HotelCard.jsx` (overlay chips/star styling + subtle hover)
-- [ ] Step 5: Consistency pass on section headings in `Hotels.jsx` / `HotelDetails.jsx` if needed
-- [x] Step 6: Run frontend dev/build to ensure no breakage
+## Step 1: Add design-system utilities
+- [ ] Update `src/index.css` with CSS variables (dark+gold) and reusable classes: `ui-container`, `ui-card`, `ui-btn-*`, `ui-field`.
+- [x] Add consistent focus rings for inputs/selects/textarea
 
 
+
+
+## Step 2: Refactor shared layout components
+- [ ] Update `src/components/Navbar.jsx` to use design-system button/panel styles.
+- [ ] Update `src/components/Footer.jsx` to use consistent card/border styles.
+
+## Step 3: Refactor pages (no logic changes)
+- [ ] Update `src/pages/Home.jsx` to use `ui-card`, `ui-btn-*`, `ui-field`.
+- [ ] Update `src/pages/Hotels.jsx` to use consistent UI primitives.
+- [ ] Update `src/pages/HotelDetails.jsx` to use consistent UI primitives for room cards + booking form.
+- [ ] Update `src/pages/Booking.jsx` to use consistent UI primitives for booking cards.
+- [ ] Update `src/pages/Login.jsx` to use `ui-card` + `ui-field` + `ui-btn-primary`.
+- [ ] Update `src/pages/Register.jsx` to use `ui-card` + `ui-field` + `ui-btn-primary`.
+
+## Step 4: Optional polish
+- [ ] Ensure `src/components/HotelCard.jsx` matches the new `.ui-card` aesthetic.
+
+## Step 5: Test
+- [ ] Run frontend and visually verify routes: `/`, `/hotels`, `/hotels/:id`, `/bookings`, `/login`, `/register`.
+- [ ] Sanity check: focus/hover/disabled states and responsiveness.
 

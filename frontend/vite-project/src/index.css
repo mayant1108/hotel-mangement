@@ -37,13 +37,20 @@
   }
 }
 
-/* Small reusable visual helpers */
+/* UI design system primitives (dark + gold “official” look) */
 @layer utilities {
+  :root {
+    --gold: 200 169 107;
+    --bg: 10 10 10;
+    --text: 229 229 229;
+    --card-border: 255 255 255;
+  }
+
   .section-kicker {
     text-transform: uppercase;
     letter-spacing: 0.36em;
     font-size: 0.75rem;
-    color: rgb(200 169 107 / 0.95);
+    color: rgb(var(--gold) / 0.95);
   }
 
   .section-heading {
@@ -51,5 +58,103 @@
     font-weight: 800;
     letter-spacing: -0.02em;
   }
+
+  .ui-container {
+    max-width: 70rem; /* 1120px */
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .ui-card {
+    border-radius: 1.75rem;
+    border: 1px solid rgb(255 255 255 / 0.10);
+    background: rgb(255 255 255 / 0.05);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 10px 40px rgb(0 0 0 / 0.35);
+  }
+
+  .ui-card-soft {
+    border-radius: 1.5rem;
+    border: 1px solid rgb(255 255 255 / 0.10);
+    background: rgb(255 255 255 / 0.04);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .ui-btn-primary {
+    border-radius: 9999px;
+    background: rgb(var(--gold) / 1);
+    color: #000;
+    font-weight: 600;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+    transition: background 160ms ease, transform 160ms ease;
+  }
+  .ui-btn-primary:hover {
+    background: rgb(var(--gold) / 0.90);
+  }
+
+  .ui-btn-secondary {
+    border-radius: 9999px;
+    border: 1px solid rgb(var(--gold) / 0.45);
+    color: rgb(var(--gold) / 1);
+    background: rgb(0 0 0 / 0);
+    font-weight: 600;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+    transition: background 160ms ease, border-color 160ms ease;
+  }
+  .ui-btn-secondary:hover {
+    background: rgb(var(--gold) / 0.10);
+    border-color: rgb(var(--gold) / 0.65);
+  }
+
+  .ui-btn-danger {
+    border-radius: 9999px;
+    border: 1px solid rgb(248 113 113 / 0.45);
+    color: rgb(248 113 113 / 1);
+    background: rgb(0 0 0 / 0);
+    font-weight: 600;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+    padding-top: 0.65rem;
+    padding-bottom: 0.65rem;
+    transition: background 160ms ease;
+  }
+  .ui-btn-danger:hover {
+    background: rgb(248 113 113 / 0.10);
+  }
+
+  .ui-field {
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(255 255 255 / 0.15);
+    background: rgb(2 6 23 / 0.60);
+    color: #fff;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+    outline: none;
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .ui-field:focus {
+    border-color: rgb(var(--gold) / 0.55);
+    box-shadow: 0 0 0 4px rgb(var(--gold) / 0.12);
+  }
+
+  .ui-textarea {
+    min-height: 8rem;
+    resize: vertical;
+  }
 }
+
 
